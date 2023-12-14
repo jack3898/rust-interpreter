@@ -2,7 +2,9 @@ mod constants;
 mod run;
 mod run_file;
 mod run_prompt;
+mod scanner;
 
+use run::run;
 use run_file::run_file;
 use run_prompt::run_prompt;
 use std::{env, process::exit};
@@ -21,5 +23,5 @@ fn main() {
         }
     };
 
-    println!("{}", input);
+    run(&input).expect("Unable to run the program!");
 }
