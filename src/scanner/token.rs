@@ -1,11 +1,17 @@
 use super::{literal_type::LiteralType, token_type::TokenType};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
+    /**
+     * The lexeme is the actual text that was matched for this token.
+     */
     pub lexeme: String,
+    /**
+     * The literal is the memory value of the token.
+     */
     pub literal: Option<LiteralType>,
-    pub line: i32,
+    pub line: usize,
 }
 
 impl Token {
@@ -13,7 +19,7 @@ impl Token {
         token_type: TokenType,
         lexeme: String,
         literal: Option<LiteralType>,
-        line: i32,
+        line: usize,
     ) -> Self {
         Self {
             token_type,
@@ -21,5 +27,14 @@ impl Token {
             literal,
             line,
         }
+    }
+
+    pub fn to_string(&self) -> String {
+        format!(
+            "{:?} {} {}",
+            self.token_type,
+            self.lexeme,
+            self.literal.as_ref().unwrap().to_string()
+        )
     }
 }
