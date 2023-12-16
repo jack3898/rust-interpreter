@@ -1,4 +1,4 @@
-use crate::util::number::{is_digit, parse_string};
+use crate::util::string::{is_alpha, is_alphanumeric, is_digit, parse_string};
 
 use super::{literal_type::LiteralType, token::Token, token_type::TokenType};
 
@@ -118,6 +118,17 @@ impl Scanner {
                             None
                         }
                     }
+                } else if is_alpha(character) {
+                    // It is important to note at the scanning stage, we only need to know there is an identifier. Not the type of it.
+                    // This is because the actual meaning is determined later by the semantic analysis phase.
+                    match self.scan_to_identifier_then_advance() {
+                        Ok(identifier) => Some(identifier),
+                        Err(error) => {
+                            println!("{}", error);
+
+                            None
+                        }
+                    }
                 } else {
                     println!(
                         "Error parsing source code at char '{}', line {}",
@@ -185,6 +196,15 @@ impl Scanner {
             .ok_or("Could not add token.".to_string()); // TODO: More rubbish error
 
         added_token
+    }
+
+    fn scan_to_identifier_then_advance(&mut self) -> Result<TokenType, String> {
+        while is_alphanumeric(self.peek()) {
+            self.advance();
+        }
+
+        self.add_token(TokenType::Identifier, None)
+            .ok_or("Could not add identifier".to_string())
     }
 
     fn is_char_then_advance(&mut self, character: char) -> bool {
@@ -278,7 +298,7 @@ impl Scanner {
 mod tests {
     use crate::{
         constants::{CRLF, LF},
-        scanner::literal_type::LiteralType,
+        scanner::{literal_type::LiteralType, token::Token},
     };
 
     use super::{Scanner, TokenType};
@@ -296,13 +316,17 @@ mod tests {
 
     #[test]
     fn should_scan_with_token_combo() {
-        let source = "(( )) {{ }} , . - + ; * / ! = < > 1 10 200 3000";
+        let source = r#"
+        (( )) {{ }} , . - +
+        ; * / ! = < > 1 10
+        200 3000 ident ident2
+        "#;
         let mut scanner = Scanner::new(source);
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens.len(), 24);
-        assert_eq!(scanner.line, 1);
+        assert_eq!(scanner.tokens.len(), 26);
+        assert_eq!(scanner.line, 5);
     }
 
     #[test]
@@ -419,5 +443,53 @@ mod tests {
             }
             _ => panic!("Expected a number literal"),
         }
+    }
+
+    #[test]
+    fn should_match_identifier() {
+        let source = "rando identifier";
+        let mut scanner = Scanner::new(source);
+
+        scanner.scan_tokens().ok();
+
+        assert_eq!(scanner.tokens.len(), 3);
+
+        let ident1 = &scanner.tokens[0].token_type;
+        let ident2 = &scanner.tokens[1].token_type;
+
+        assert_eq!(
+            *ident1,
+            TokenType::Identifier,
+            "Unexpected token, expected identifier for ident 1"
+        );
+        assert_eq!(
+            *ident2,
+            TokenType::Identifier,
+            "Unexpected token, expected identifier for ident 2"
+        );
+    }
+
+    #[test]
+    fn should_match_embedded_identifier() {
+        let source = "rando = identifier + 1";
+        let mut scanner = Scanner::new(source);
+
+        scanner.scan_tokens().ok();
+
+        assert_eq!(scanner.tokens.len(), 6);
+
+        let ident1 = &scanner.tokens[0].token_type;
+        let ident2 = &scanner.tokens[2].token_type;
+
+        assert_eq!(
+            *ident1,
+            TokenType::Identifier,
+            "Unexpected token, expected identifier for ident 1"
+        );
+        assert_eq!(
+            *ident2,
+            TokenType::Identifier,
+            "Unexpected token, expected identifier for ident 2"
+        );
     }
 }
