@@ -20,6 +20,10 @@ impl Scanner {
         }
     }
 
+    /// Initialise the scan token process.
+    /// Loops through all chars in the source,
+    /// statefully updates self.start and self.current and finishes when at the final character
+    /// To calculate what tokens are present
     pub fn scan_tokens(&mut self) -> Result<&Vec<Token>, String> {
         while !Self::is_at_end(self) {
             self.start = self.current;
@@ -52,15 +56,15 @@ impl Scanner {
             ';' => self.add_token(TokenType::Semicolon, None),
             '*' => self.add_token(TokenType::Star, None),
             '/' => self.add_token(TokenType::Slash, None), // TODO: Add comment evaluation into this match
-            '"' => match self.string_match() {
-                Ok(token) => Some(token),
+            '"' => match self.scan_string_then_advance() {
+                Ok(string_token) => Some(string_token),
                 Err(error) => {
                     println!("{}", error);
                     None
                 }
             },
             '!' => {
-                let token_type = if self.char_match('=') {
+                let token_type = if self.is_char_then_advance('=') {
                     TokenType::BangEqual
                 } else {
                     TokenType::Equal
@@ -69,7 +73,7 @@ impl Scanner {
                 self.add_token(token_type, None)
             }
             '=' => {
-                let token_type = if self.char_match('=') {
+                let token_type = if self.is_char_then_advance('=') {
                     TokenType::EqualEqual
                 } else {
                     TokenType::Equal
@@ -78,7 +82,7 @@ impl Scanner {
                 self.add_token(token_type, None)
             }
             '<' => {
-                let token_type = if self.char_match('=') {
+                let token_type = if self.is_char_then_advance('=') {
                     TokenType::LessEqual
                 } else {
                     TokenType::Equal
@@ -87,7 +91,7 @@ impl Scanner {
                 self.add_token(token_type, None)
             }
             '>' => {
-                let token_type = if self.char_match('=') {
+                let token_type = if self.is_char_then_advance('=') {
                     TokenType::GreaterEqual
                 } else {
                     TokenType::Equal
@@ -112,7 +116,10 @@ impl Scanner {
         }
     }
 
-    fn string_match(&mut self) -> Result<TokenType, String> {
+    /// Identify a string of random lengths.
+    /// Keeps scanning until it finds the closing quote and will
+    /// Respond with the token. Uses self.start and advances self.current to the closing quote to return the string.
+    fn scan_string_then_advance(&mut self) -> Result<TokenType, String> {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -139,7 +146,7 @@ impl Scanner {
         added_token
     }
 
-    fn char_match(&mut self, character: char) -> bool {
+    fn is_char_then_advance(&mut self, character: char) -> bool {
         if self.is_at_end() {
             return false;
         }
@@ -167,6 +174,7 @@ impl Scanner {
     }
 
     // TODO: convert from -> \0 to -> Option<char> rather than returning \0, it will be more idiomatic
+    /// Peek at the char found at self.current. Does not advance self.current.
     fn peek(&self) -> char {
         if self.is_at_end() {
             return '\0';
@@ -175,20 +183,20 @@ impl Scanner {
         self.source[self.current]
     }
 
+    /// Peek & advance the current index by 1
     fn advance(&mut self) -> Option<char> {
-        let current = self.current as usize;
+        let character = self.peek();
 
-        if self.is_at_end() {
+        if character == '\0' {
             return None;
         }
 
-        let character = Some(self.source[current]);
-
         self.current += 1;
 
-        character
+        Some(character)
     }
 
+    /// Take a slice of the source using a start and end index
     fn source_slice(&self, start: usize, end: usize) -> Option<String> {
         let slice = self.source.get(start..end)?.iter().collect();
 
