@@ -1,3 +1,5 @@
+use crate::util::number::{is_digit, parse_string};
+
 use super::{literal_type::LiteralType, token::Token, token_type::TokenType};
 
 #[derive(Debug)]
@@ -56,10 +58,11 @@ impl Scanner {
             ';' => self.add_token(TokenType::Semicolon, None),
             '*' => self.add_token(TokenType::Star, None),
             '/' => self.add_token(TokenType::Slash, None), // TODO: Add comment evaluation into this match
-            '"' => match self.scan_string_then_advance() {
+            '"' => match self.scan_to_string_token_then_advance() {
                 Ok(string_token) => Some(string_token),
                 Err(error) => {
                     println!("{}", error);
+
                     None
                 }
             },
@@ -105,13 +108,24 @@ impl Scanner {
 
                 None
             }
-            _ => {
-                println!(
-                    "Error parsing source code at char '{}', line {}",
-                    character, self.line
-                );
+            any_char => {
+                if is_digit(any_char) {
+                    match self.scan_to_number_token_then_advance() {
+                        Ok(number_token) => Some(number_token),
+                        Err(error) => {
+                            println!("{}", error);
 
-                None
+                            None
+                        }
+                    }
+                } else {
+                    println!(
+                        "Error parsing source code at char '{}', line {}",
+                        character, self.line
+                    );
+
+                    None
+                }
             }
         }
     }
@@ -119,7 +133,7 @@ impl Scanner {
     /// Identify a string of random lengths.
     /// Keeps scanning until it finds the closing quote and will
     /// Respond with the token. Uses self.start and advances self.current to the closing quote to return the string.
-    fn scan_string_then_advance(&mut self) -> Result<TokenType, String> {
+    fn scan_to_string_token_then_advance(&mut self) -> Result<TokenType, String> {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -141,6 +155,33 @@ impl Scanner {
 
         let added_token = self
             .add_token(TokenType::String, Some(LiteralType::String(value?)))
+            .ok_or("Could not add token.".to_string()); // TODO: More rubbish error
+
+        added_token
+    }
+
+    fn scan_to_number_token_then_advance(&mut self) -> Result<TokenType, String> {
+        while is_digit(self.peek()) {
+            self.advance();
+        }
+
+        let peek_next = self.peek_at(self.current + 1);
+
+        if self.peek() == '.' && is_digit(peek_next) {
+            self.advance();
+
+            while is_digit(self.peek()) {
+                self.advance();
+            }
+        }
+
+        let value = self.source_slice(self.start, self.current).unwrap();
+
+        let number =
+            parse_string(&value).ok_or(format!("Unable to parse {:?} into a number", value));
+
+        let added_token = self
+            .add_token(TokenType::Number, Some(LiteralType::Number(number?)))
             .ok_or("Could not add token.".to_string()); // TODO: More rubbish error
 
         added_token
@@ -180,7 +221,16 @@ impl Scanner {
             return '\0';
         }
 
-        self.source[self.current]
+        self.peek_at(self.current)
+    }
+
+    /// Peek at a specific index
+    fn peek_at(&self, index: usize) -> char {
+        if index >= self.source.len() {
+            return '\0';
+        }
+
+        self.source[index]
     }
 
     /// Peek & advance the current index by 1
@@ -246,12 +296,12 @@ mod tests {
 
     #[test]
     fn should_scan_with_token_combo() {
-        let source = "(( )) {{ }} , . - + ; * / ! = < >";
+        let source = "(( )) {{ }} , . - + ; * / ! = < > 1 10 200 3000";
         let mut scanner = Scanner::new(source);
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens.len(), 20);
+        assert_eq!(scanner.tokens.len(), 24);
         assert_eq!(scanner.line, 1);
     }
 
@@ -277,12 +327,12 @@ mod tests {
 
     #[test]
     fn should_match_combo_tokens() {
-        let source = "!= <= >= ==";
+        let source = "!= <= 60 >= == 123.45";
         let mut scanner = Scanner::new(source);
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens.len(), 5);
+        assert_eq!(scanner.tokens.len(), 7);
         assert_eq!(scanner.line, 1);
     }
 
@@ -334,6 +384,40 @@ mod tests {
                 assert_eq!(literal_string, "hey, time to be happy! q:)|=<; ");
             }
             _ => panic!("Expected a string literal"),
+        }
+    }
+
+    #[test]
+    fn should_match_number() {
+        let source = "100";
+        let mut scanner = Scanner::new(source);
+
+        scanner.scan_tokens().ok();
+
+        assert_eq!(scanner.tokens.len(), 2);
+
+        match &scanner.tokens[0].literal {
+            Some(LiteralType::Number(number)) => {
+                assert_eq!(*number, 100.0);
+            }
+            _ => panic!("Expected a number literal"),
+        }
+    }
+
+    #[test]
+    fn should_match_float_number() {
+        let source = "10.1";
+        let mut scanner = Scanner::new(source);
+
+        scanner.scan_tokens().ok();
+
+        assert_eq!(scanner.tokens.len(), 2);
+
+        match &scanner.tokens[0].literal {
+            Some(LiteralType::Number(number)) => {
+                assert_eq!(*number, 10.1);
+            }
+            _ => panic!("Expected a number literal"),
         }
     }
 }

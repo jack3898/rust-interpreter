@@ -3,6 +3,7 @@ mod run;
 mod run_file;
 mod run_prompt;
 mod scanner;
+mod util;
 
 use run::run;
 use run_file::run_file;
