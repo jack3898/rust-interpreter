@@ -52,6 +52,13 @@ impl Scanner {
             ';' => self.add_token(TokenType::Semicolon, None),
             '*' => self.add_token(TokenType::Star, None),
             '/' => self.add_token(TokenType::Slash, None), // TODO: Add comment evaluation into this match
+            '"' => match self.string_match() {
+                Ok(token) => Some(token),
+                Err(error) => {
+                    println!("{}", error);
+                    None
+                }
+            },
             '!' => {
                 let token_type = if self.char_match('=') {
                     TokenType::BangEqual
@@ -105,6 +112,33 @@ impl Scanner {
         }
     }
 
+    fn string_match(&mut self) -> Result<TokenType, String> {
+        while self.peek() != '"' && !self.is_at_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+
+            self.advance();
+        }
+
+        if self.is_at_end() {
+            return Err("Unterminated string.".to_string());
+        }
+
+        // Consume the last " char
+        self.advance();
+
+        let value = self
+            .source_slice(self.start + 1, self.current - 1)
+            .ok_or("Trouble calculating string literal slice."); // TODO: Rubbish error 😂
+
+        let added_token = self
+            .add_token(TokenType::String, Some(LiteralType::String(value?)))
+            .ok_or("Could not add token.".to_string()); // TODO: More rubbish error
+
+        added_token
+    }
+
     fn char_match(&mut self, character: char) -> bool {
         if self.is_at_end() {
             return false;
@@ -132,13 +166,33 @@ impl Scanner {
                 .expect("Unable to convert source length to u64!")
     }
 
+    // TODO: convert from -> \0 to -> Option<char> rather than returning \0, it will be more idiomatic
+    fn peek(&self) -> char {
+        if self.is_at_end() {
+            return '\0';
+        }
+
+        self.source[self.current]
+    }
+
     fn advance(&mut self) -> Option<char> {
         let current = self.current as usize;
+
+        if self.is_at_end() {
+            return None;
+        }
+
         let character = Some(self.source[current]);
 
         self.current += 1;
 
         character
+    }
+
+    fn source_slice(&self, start: usize, end: usize) -> Option<String> {
+        let slice = self.source.get(start..end)?.iter().collect();
+
+        Some(slice)
     }
 
     fn add_token(
@@ -148,8 +202,7 @@ impl Scanner {
     ) -> Option<TokenType> {
         let start = self.start;
         let current = self.current;
-        let text_char_vec = self.source.get(start..current)?;
-        let lexeme: String = text_char_vec.iter().collect();
+        let lexeme: String = self.source_slice(start, current)?;
 
         let token = Token {
             token_type: token_type.clone(),
@@ -165,7 +218,10 @@ impl Scanner {
 }
 
 mod tests {
-    use crate::constants::{CRLF, LF};
+    use crate::{
+        constants::{CRLF, LF},
+        scanner::literal_type::LiteralType,
+    };
 
     use super::{Scanner, TokenType};
 
@@ -220,5 +276,56 @@ mod tests {
 
         assert_eq!(scanner.tokens.len(), 5);
         assert_eq!(scanner.line, 1);
+    }
+
+    #[test]
+    fn should_match_string_literal() {
+        let source = "\"hey\"";
+        let mut scanner = Scanner::new(source);
+
+        scanner.scan_tokens().ok();
+
+        assert_eq!(scanner.tokens.len(), 2);
+
+        match &scanner.tokens[0].literal {
+            Some(LiteralType::String(literal_string)) => {
+                assert_eq!(literal_string, "hey");
+            }
+            _ => panic!("Expected a string literal"),
+        }
+    }
+
+    #[test]
+    fn should_match_string_literal_with_other_chars() {
+        let source = "\"hey, time to be happy! :)\"";
+        let mut scanner = Scanner::new(source);
+
+        scanner.scan_tokens().ok();
+
+        assert_eq!(scanner.tokens.len(), 2);
+
+        match &scanner.tokens[0].literal {
+            Some(LiteralType::String(literal_string)) => {
+                assert_eq!(literal_string, "hey, time to be happy! :)");
+            }
+            _ => panic!("Expected a string literal"),
+        }
+    }
+
+    #[test]
+    fn should_match_string_literal_wrapped_by_chars() {
+        let source = "(\"hey, time to be happy! q:)|=<; \")";
+        let mut scanner = Scanner::new(source);
+
+        scanner.scan_tokens().ok();
+
+        assert_eq!(scanner.tokens.len(), 4);
+
+        match &scanner.tokens[1].literal {
+            Some(LiteralType::String(literal_string)) => {
+                assert_eq!(literal_string, "hey, time to be happy! q:)|=<; ");
+            }
+            _ => panic!("Expected a string literal"),
+        }
     }
 }
