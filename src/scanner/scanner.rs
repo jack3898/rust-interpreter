@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
 use crate::util::string::{is_alpha, is_alphanumeric, is_digit, parse_string};
 
 use super::{literal_type::LiteralType, token::Token, token_type::TokenType};
+use lazy_static::lazy_static;
 
 #[derive(Debug)]
 pub struct Scanner {
@@ -9,6 +12,31 @@ pub struct Scanner {
     start: usize,
     current: usize,
     line: usize,
+}
+
+lazy_static! {
+    static ref KEYWORDS: HashMap<&'static str, TokenType> = {
+        let mut keywords = HashMap::new();
+
+        keywords.insert("and", TokenType::And);
+        keywords.insert("class", TokenType::Class);
+        keywords.insert("else", TokenType::Else);
+        keywords.insert("false", TokenType::False);
+        keywords.insert("for", TokenType::For);
+        keywords.insert("fun", TokenType::Fun);
+        keywords.insert("if", TokenType::If);
+        keywords.insert("nil", TokenType::Nil);
+        keywords.insert("or", TokenType::Or);
+        keywords.insert("print", TokenType::Print);
+        keywords.insert("return", TokenType::Return);
+        keywords.insert("super", TokenType::Super);
+        keywords.insert("this", TokenType::This);
+        keywords.insert("true", TokenType::True);
+        keywords.insert("var", TokenType::Var);
+        keywords.insert("while", TokenType::While);
+
+        keywords
+    };
 }
 
 impl Scanner {
@@ -119,8 +147,6 @@ impl Scanner {
                         }
                     }
                 } else if is_alpha(character) {
-                    // It is important to note at the scanning stage, we only need to know there is an identifier. Not the type of it.
-                    // This is because the actual meaning is determined later by the semantic analysis phase.
                     match self.scan_to_identifier_then_advance() {
                         Ok(identifier) => Some(identifier),
                         Err(error) => {
@@ -203,8 +229,20 @@ impl Scanner {
             self.advance();
         }
 
+        let value = self
+            .source_slice(self.start, self.current)
+            .unwrap_or("Could not retrieve source slice.".to_string());
+
+        let token_type = KEYWORDS.get(value.as_str()).cloned();
+
+        if let Some(token_type) = token_type {
+            return self
+                .add_token(token_type, None)
+                .ok_or("Could not add token.".to_string());
+        }
+
         self.add_token(TokenType::Identifier, None)
-            .ok_or("Could not add identifier".to_string())
+            .ok_or("Could not add token.".to_string())
     }
 
     fn is_char_then_advance(&mut self, character: char) -> bool {
@@ -367,14 +405,10 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens.len(), 2);
-
-        match &scanner.tokens[0].literal {
-            Some(LiteralType::String(literal_string)) => {
-                assert_eq!(literal_string, "hey");
-            }
-            _ => panic!("Expected a string literal"),
-        }
+        assert_eq!(
+            scanner.tokens[0].literal,
+            Some(LiteralType::String("hey".to_string()))
+        );
     }
 
     #[test]
@@ -384,14 +418,10 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens.len(), 2);
-
-        match &scanner.tokens[0].literal {
-            Some(LiteralType::String(literal_string)) => {
-                assert_eq!(literal_string, "hey, time to be happy! :)");
-            }
-            _ => panic!("Expected a string literal"),
-        }
+        assert_eq!(
+            scanner.tokens[0].literal,
+            Some(LiteralType::String("hey, time to be happy! :)".to_string()))
+        );
     }
 
     #[test]
@@ -401,14 +431,12 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens.len(), 4);
-
-        match &scanner.tokens[1].literal {
-            Some(LiteralType::String(literal_string)) => {
-                assert_eq!(literal_string, "hey, time to be happy! q:)|=<; ");
-            }
-            _ => panic!("Expected a string literal"),
-        }
+        assert_eq!(
+            scanner.tokens[1].literal,
+            Some(LiteralType::String(
+                "hey, time to be happy! q:)|=<; ".to_string()
+            )),
+        );
     }
 
     #[test]
@@ -418,14 +446,7 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens.len(), 2);
-
-        match &scanner.tokens[0].literal {
-            Some(LiteralType::Number(number)) => {
-                assert_eq!(*number, 100.0);
-            }
-            _ => panic!("Expected a number literal"),
-        }
+        assert_eq!(scanner.tokens[0].literal, Some(LiteralType::Number(100.0)));
     }
 
     #[test]
@@ -435,14 +456,7 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens.len(), 2);
-
-        match &scanner.tokens[0].literal {
-            Some(LiteralType::Number(number)) => {
-                assert_eq!(*number, 10.1);
-            }
-            _ => panic!("Expected a number literal"),
-        }
+        assert_eq!(scanner.tokens[0].literal, Some(LiteralType::Number(10.1)));
     }
 
     #[test]
@@ -452,21 +466,8 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens.len(), 3);
-
-        let ident1 = &scanner.tokens[0].token_type;
-        let ident2 = &scanner.tokens[1].token_type;
-
-        assert_eq!(
-            *ident1,
-            TokenType::Identifier,
-            "Unexpected token, expected identifier for ident 1"
-        );
-        assert_eq!(
-            *ident2,
-            TokenType::Identifier,
-            "Unexpected token, expected identifier for ident 2"
-        );
+        assert_eq!(scanner.tokens[0].token_type, TokenType::Identifier);
+        assert_eq!(scanner.tokens[1].token_type, TokenType::Identifier);
     }
 
     #[test]
@@ -476,20 +477,18 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens.len(), 6);
+        assert_eq!(scanner.tokens[0].token_type, TokenType::Identifier);
+        assert_eq!(scanner.tokens[2].token_type, TokenType::Identifier);
+    }
 
-        let ident1 = &scanner.tokens[0].token_type;
-        let ident2 = &scanner.tokens[2].token_type;
+    #[test]
+    fn should_match_token_type_from_hash() {
+        let source = "var wow = 1 + 1";
+        let mut scanner = Scanner::new(source);
 
-        assert_eq!(
-            *ident1,
-            TokenType::Identifier,
-            "Unexpected token, expected identifier for ident 1"
-        );
-        assert_eq!(
-            *ident2,
-            TokenType::Identifier,
-            "Unexpected token, expected identifier for ident 2"
-        );
+        scanner.scan_tokens().ok();
+
+        assert_eq!(scanner.tokens[0].token_type, TokenType::Var);
+        assert_eq!(scanner.tokens[1].token_type, TokenType::Identifier);
     }
 }
