@@ -334,11 +334,13 @@ impl Scanner {
 }
 
 mod tests {
+    #[cfg(test)]
     use crate::{
         constants::{CRLF, LF},
-        scanner::{literal_type::LiteralType, token::Token},
+        scanner::literal_type::LiteralType,
     };
 
+    #[cfg(test)]
     use super::{Scanner, TokenType};
 
     #[test]

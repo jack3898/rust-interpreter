@@ -1,8 +1,8 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // Single char tokens
-    LeftParen,
-    RightParen,
+    // LeftParen,
+    // RightParen,
     LeftBrace,
     RightBrace,
     Comma,
@@ -14,13 +14,13 @@ pub enum TokenType {
     Star,
 
     // One or two char tokens
-    Bang,
+    // Bang,
     BangEqual,
     Equal,
     EqualEqual,
-    Greater,
+    // Greater,
     GreaterEqual,
-    Less,
+    // Less,
     LessEqual,
 
     // Literals

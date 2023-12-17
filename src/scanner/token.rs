@@ -15,26 +15,26 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(
-        token_type: TokenType,
-        lexeme: String,
-        literal: Option<LiteralType>,
-        line: usize,
-    ) -> Self {
-        Self {
-            token_type,
-            lexeme,
-            literal,
-            line,
-        }
-    }
+    // pub fn new(
+    //     token_type: TokenType,
+    //     lexeme: String,
+    //     literal: Option<LiteralType>,
+    //     line: usize,
+    // ) -> Self {
+    //     Self {
+    //         token_type,
+    //         lexeme,
+    //         literal,
+    //         line,
+    //     }
+    // }
 
-    pub fn to_string(&self) -> String {
-        format!(
-            "{:?} {} {}",
-            self.token_type,
-            self.lexeme,
-            self.literal.as_ref().unwrap().to_string()
-        )
-    }
+    // pub fn to_string(&self) -> String {
+    //     format!(
+    //         "{:?} {} {}",
+    //         self.token_type,
+    //         self.lexeme,
+    //         self.literal.as_ref().unwrap().to_string()
+    //     )
+    // }
 }
