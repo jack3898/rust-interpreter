@@ -1,4 +1,4 @@
-use super::{literal_type::LiteralType, token_type::TokenType};
+use crate::{literal_type::LiteralType, token_type::TokenType};
 
 #[derive(Debug, PartialEq)]
 pub struct Token {

@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 
-use crate::util::string::{is_alpha, is_alphanumeric, is_digit, parse_string};
+use crate::{
+    literal_type::LiteralType,
+    token::Token,
+    token_type::TokenType,
+    util::string::{is_alpha, is_alphanumeric, is_digit, parse_string},
+};
 
-use super::{literal_type::LiteralType, token::Token, token_type::TokenType};
 use lazy_static::lazy_static;
 
 #[derive(Debug)]
@@ -337,7 +341,7 @@ mod tests {
     #[cfg(test)]
     use crate::{
         constants::{CRLF, LF},
-        scanner::literal_type::LiteralType,
+        literal_type::LiteralType,
     };
 
     #[cfg(test)]

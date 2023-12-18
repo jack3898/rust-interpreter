@@ -2,8 +2,8 @@
 pub enum LiteralType {
     String(String),
     Number(f64),
-    // Boolean(bool),
-    // Nil,
+    Boolean(bool),
+    Nil,
 }
 
 impl std::fmt::Display for LiteralType {
@@ -11,8 +11,8 @@ impl std::fmt::Display for LiteralType {
         match self {
             LiteralType::String(s) => write!(f, "{}", s),
             LiteralType::Number(n) => write!(f, "{}", n),
-            // LiteralType::Boolean(b) => write!(f, "{}", b),
-            // LiteralType::Nil => write!(f, "nil"),
+            LiteralType::Boolean(b) => write!(f, "{}", b),
+            LiteralType::Nil => write!(f, "nil"),
         }
     }
 }
