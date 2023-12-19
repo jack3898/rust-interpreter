@@ -1,6 +1,7 @@
-use crate::token::Token;
+use crate::{literal_type::LiteralType, token::Token};
 
 pub enum Expr {
+    // two-operands (the items on either side of the operator) like 1 + 1 or 3 != 2
     Binary {
         left: Box<Expr>,
         operator: Token,
@@ -10,8 +11,9 @@ pub enum Expr {
         expression: Box<Expr>,
     },
     Literal {
-        value: Literal,
+        value: LiteralType,
     },
+    // something like !x or x++
     Unary {
         operator: Token,
         right: Box<Expr>,
@@ -44,36 +46,11 @@ impl Expr {
     }
 }
 
-pub enum Literal {
-    Number(f64),
-    Str(String),
-    True,
-    False,
-    Nil,
-}
-
-impl Literal {
-    pub fn to_string(&self) -> String {
-        match self {
-            Self::True => "true".to_string(),
-            Self::False => "false".to_string(),
-            Self::Nil => "nil".to_string(),
-            Self::Str(str) => str.to_string(),
-            Self::Number(num) => num.to_string(),
-        }
-    }
-
-    pub fn print(&self) {
-        println!("{}", self.to_string())
-    }
-}
-
 mod tests {
     #[cfg(test)]
-    use crate::{ast::ast::Literal, token::Token, token_type::TokenType};
-
+    use crate::literal_type::LiteralType;
     #[cfg(test)]
-    use super::Literal::Number;
+    use crate::{token::Token, token_type::TokenType};
 
     #[cfg(test)]
     use super::Expr;
@@ -81,14 +58,18 @@ mod tests {
     #[test]
     fn should_pretty_print_plus() {
         let ast = Expr::Binary {
-            left: Box::from(Expr::Literal { value: Number(5.0) }),
+            left: Box::from(Expr::Literal {
+                value: LiteralType::Number(5.0),
+            }),
             operator: Token {
                 lexeme: "+".to_string(),
                 line: 1,
                 literal: None,
                 token_type: TokenType::Plus,
             },
-            right: Box::from(Expr::Literal { value: Number(3.0) }),
+            right: Box::from(Expr::Literal {
+                value: LiteralType::Number(3.0),
+            }),
         };
 
         assert_eq!("(+ 5 3)", ast.to_string())
@@ -106,7 +87,7 @@ mod tests {
                         token_type: TokenType::Slash,
                     },
                     right: Box::from(Expr::Literal {
-                        value: Literal::Number(1.0),
+                        value: LiteralType::Number(1.0),
                     }),
                 }),
             }),
@@ -117,7 +98,7 @@ mod tests {
                 token_type: TokenType::Plus,
             },
             right: Box::from(Expr::Literal {
-                value: Literal::Number(3.0),
+                value: LiteralType::Number(3.0),
             }),
         };
 
