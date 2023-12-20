@@ -79,8 +79,8 @@ impl Scanner {
 
         // Single character lexemes
         match character {
-            '(' => self.add_token(TokenType::LeftBrace, None),
-            ')' => self.add_token(TokenType::RightBrace, None),
+            '(' => self.add_token(TokenType::LeftParen, None),
+            ')' => self.add_token(TokenType::RightParen, None),
             '{' => self.add_token(TokenType::LeftBrace, None),
             '}' => self.add_token(TokenType::RightBrace, None),
             ',' => self.add_token(TokenType::Comma, None),

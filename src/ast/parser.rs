@@ -4,13 +4,13 @@ use super::ast::Expr;
 
 // I know there is so much repetition in this file and unoptimised code 🤣 but it'll do for my first prototype
 
-pub struct Parser {
-    tokens: Vec<Token>,
+pub struct Parser<'a> {
+    tokens: &'a Vec<Token>,
     current: usize,
 }
 
-impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
+impl<'a> Parser<'a> {
+    pub fn new(tokens: &'a Vec<Token>) -> Self {
         Self { current: 0, tokens }
     }
 
@@ -29,12 +29,16 @@ impl Parser {
         self.previous()
     }
 
-    fn advance_if_token(&mut self, token_type: &TokenType) {
+    fn advance_if_token(&mut self, token_type: &TokenType) -> Option<()> {
         let token = self.peek().expect("Could not consume current token.");
 
         if token_type == &token.token_type {
             self.advance();
+
+            return Some(());
         }
+
+        None
     }
 
     fn peek(&self) -> Option<&Token> {
@@ -70,12 +74,16 @@ impl Parser {
         self.tokens.get(self.current - 1)
     }
 
-    fn expression(&mut self) -> Expr {
+    pub fn parse(&mut self) -> Result<Expr, String> {
+        self.expression()
+    }
+
+    fn expression(&mut self) -> Result<Expr, String> {
         self.equality()
     }
 
-    fn equality(&mut self) -> Expr {
-        let mut expr = self.comparison();
+    fn equality(&mut self) -> Result<Expr, String> {
+        let mut expr = self.comparison()?;
         let token_types = [TokenType::BangEqual, TokenType::EqualEqual].to_vec();
 
         while self.match_tokens_then_advance(&token_types) {
@@ -83,7 +91,7 @@ impl Parser {
                 .previous()
                 .expect("Could not find previous token in equality.")
                 .clone();
-            let right = self.comparison();
+            let right = self.comparison()?;
 
             expr = Expr::Binary {
                 left: Box::new(expr),
@@ -92,11 +100,11 @@ impl Parser {
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn comparison(&mut self) -> Expr {
-        let mut expr = self.term();
+    fn comparison(&mut self) -> Result<Expr, String> {
+        let mut expr = self.term()?;
         let token_types = [
             TokenType::Greater,
             TokenType::GreaterEqual,
@@ -110,7 +118,7 @@ impl Parser {
                 .previous()
                 .expect("Could not find previous token in comparison.")
                 .clone();
-            let right = self.term();
+            let right = self.term()?;
 
             expr = Expr::Binary {
                 left: Box::new(expr),
@@ -119,11 +127,11 @@ impl Parser {
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn term(&mut self) -> Expr {
-        let mut expr = self.unary();
+    fn term(&mut self) -> Result<Expr, String> {
+        let mut expr = self.unary()?;
         let token_types = [TokenType::Minus, TokenType::Plus].to_vec();
 
         while self.match_tokens_then_advance(&token_types) {
@@ -131,7 +139,7 @@ impl Parser {
                 .previous()
                 .expect("Could not find previous token in term.")
                 .clone();
-            let right = self.factor();
+            let right = self.factor()?;
 
             expr = Expr::Binary {
                 left: Box::new(expr),
@@ -140,11 +148,11 @@ impl Parser {
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn factor(&mut self) -> Expr {
-        let mut expr = self.unary();
+    fn factor(&mut self) -> Result<Expr, String> {
+        let mut expr = self.unary()?;
         let token_types = [TokenType::Minus, TokenType::Plus].to_vec();
 
         while self.match_tokens_then_advance(&token_types) {
@@ -152,7 +160,7 @@ impl Parser {
                 .previous()
                 .expect("Could not find previous token in term.")
                 .clone();
-            let right = self.unary();
+            let right = self.unary()?;
 
             expr = Expr::Binary {
                 left: Box::new(expr),
@@ -161,10 +169,10 @@ impl Parser {
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn unary(&mut self) -> Expr {
+    fn unary(&mut self) -> Result<Expr, String> {
         let token_types = [TokenType::Bang, TokenType::BangEqual].to_vec();
 
         if self.match_tokens_then_advance(&token_types) {
@@ -172,58 +180,87 @@ impl Parser {
                 .previous()
                 .expect("Could not find previous token in term.")
                 .clone();
-            let right = self.unary();
+            let right = self.unary()?;
 
-            return Expr::Unary {
+            let unary = Expr::Unary {
                 operator: operator.clone(),
                 right: Box::new(right),
             };
+
+            return Ok(unary);
         }
 
-        self.primary().unwrap()
+        self.primary()
     }
 
-    fn primary(&mut self) -> Option<Expr> {
+    fn primary(&mut self) -> Result<Expr, String> {
         if self.match_tokens_then_advance(&[TokenType::True].to_vec()) {
-            return Some(Expr::Literal {
+            return Ok(Expr::Literal {
                 value: LiteralType::Boolean(true),
             });
         }
 
         if self.match_tokens_then_advance(&[TokenType::False].to_vec()) {
-            return Some(Expr::Literal {
+            return Ok(Expr::Literal {
                 value: LiteralType::Boolean(false),
             });
         }
 
         if self.match_tokens_then_advance(&[TokenType::Nil].to_vec()) {
-            return Some(Expr::Literal {
+            return Ok(Expr::Literal {
                 value: LiteralType::Nil,
             });
         }
 
         if self.match_tokens_then_advance(&[TokenType::Number, TokenType::String].to_vec()) {
-            return Some(Expr::Literal {
+            return Ok(Expr::Literal {
                 value: self
                     .previous()
-                    .expect("Could you get previous value in primary.")
+                    .ok_or("Could you get previous value in primary.".to_string())?
                     .clone()
                     .literal
-                    .unwrap(),
+                    .ok_or("Access to literal type failed.".to_string())?,
             });
         }
 
         if self.match_tokens_then_advance(&[TokenType::LeftParen].to_vec()) {
-            let expr = self.expression();
+            let expr = self.expression()?;
 
-            self.advance_if_token(&TokenType::RightParen);
+            self.advance_if_token(&TokenType::RightParen)
+                .ok_or("Could not advance token while parsing an expression.")?;
 
-            return Some(Expr::Grouping {
+            return Ok(Expr::Grouping {
                 expression: Box::new(expr),
             });
         }
 
-        None
+        Err("Expecting an expression but did not get one.".to_string())
+    }
+
+    #[allow(dead_code)]
+    fn synchronise(&mut self) {
+        self.advance();
+
+        while !self.is_at_end() {
+            if self.previous().unwrap().token_type == TokenType::Semicolon {
+                return;
+            }
+
+            match self.peek().unwrap().token_type {
+                TokenType::Class
+                | TokenType::Fun
+                | TokenType::Var
+                | TokenType::For
+                | TokenType::If
+                | TokenType::While
+                | TokenType::Print
+                | TokenType::Return => return,
+                _ => {
+                    self.advance().unwrap();
+                    return;
+                }
+            }
+        }
     }
 }
 
@@ -259,19 +296,19 @@ mod tests {
             token_type: TokenType::Number,
         };
 
-        let semicol = Token {
+        let semi = Token {
             lexeme: ';'.to_string(),
             line: 1,
             literal: None,
             token_type: TokenType::Semicolon,
         };
 
-        let scanned_tokens = vec![one, plus, two, semicol];
+        let scanned_tokens = vec![one, plus, two, semi];
 
-        let mut parser = Parser::new(scanned_tokens);
-        let expr = parser.expression();
+        let mut parser = Parser::new(&scanned_tokens);
+        let expr = parser.parse();
 
-        assert_eq!(expr.to_string(), "(+ 1 2)");
+        assert_eq!(expr.unwrap().to_string(), "(+ 1 2)");
     }
 
     #[test]
@@ -279,9 +316,20 @@ mod tests {
         let source = "1 + 2 <= 5 + 7";
         let mut scanner = Scanner::new(source);
         let tokens = scanner.scan_tokens().unwrap();
-        let mut parser = Parser::new(tokens.clone());
-        let expr = parser.expression();
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse();
 
-        assert_eq!(expr.to_string(), "(<= (+ 1 2) (+ 5 7))");
+        assert_eq!(expr.unwrap().to_string(), "(<= (+ 1 2) (+ 5 7))");
+    }
+
+    #[test]
+    fn input_from_scanner_with_parens() {
+        let source = "1 + (2 + 2) == 5";
+        let mut scanner = Scanner::new(source);
+        let tokens = scanner.scan_tokens().unwrap();
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse();
+
+        assert_eq!(expr.unwrap().to_string(), "(== (+ 1 (group (+ 2 2))) 5)");
     }
 }

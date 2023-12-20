@@ -41,9 +41,9 @@ impl Expr {
         }
     }
 
-    pub fn print(&self) {
-        println!("{}", self.to_string());
-    }
+    // pub fn print(&self) {
+    //     println!("{}", self.to_string());
+    // }
 }
 
 mod tests {
