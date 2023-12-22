@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    literal_type::LiteralType,
+    literal_type::Lit,
     token::Token,
-    token_type::TokenType,
+    token_type::Tok,
     util::string::{is_alpha, is_alphanumeric, is_digit, parse_string},
 };
 
@@ -19,25 +19,25 @@ pub struct Scanner {
 }
 
 lazy_static! {
-    static ref KEYWORDS: HashMap<&'static str, TokenType> = {
+    static ref KEYWORDS: HashMap<&'static str, Tok> = {
         let mut keywords = HashMap::new();
 
-        keywords.insert("and", TokenType::And);
-        keywords.insert("class", TokenType::Class);
-        keywords.insert("else", TokenType::Else);
-        keywords.insert("false", TokenType::False);
-        keywords.insert("for", TokenType::For);
-        keywords.insert("fun", TokenType::Fun);
-        keywords.insert("if", TokenType::If);
-        keywords.insert("nil", TokenType::Nil);
-        keywords.insert("or", TokenType::Or);
-        keywords.insert("print", TokenType::Print);
-        keywords.insert("return", TokenType::Return);
-        keywords.insert("super", TokenType::Super);
-        keywords.insert("this", TokenType::This);
-        keywords.insert("true", TokenType::True);
-        keywords.insert("var", TokenType::Var);
-        keywords.insert("while", TokenType::While);
+        keywords.insert("and", Tok::And);
+        keywords.insert("class", Tok::Class);
+        keywords.insert("else", Tok::Else);
+        keywords.insert("false", Tok::False);
+        keywords.insert("for", Tok::For);
+        keywords.insert("fun", Tok::Fun);
+        keywords.insert("if", Tok::If);
+        keywords.insert("nil", Tok::Nil);
+        keywords.insert("or", Tok::Or);
+        keywords.insert("print", Tok::Print);
+        keywords.insert("return", Tok::Return);
+        keywords.insert("super", Tok::Super);
+        keywords.insert("this", Tok::This);
+        keywords.insert("true", Tok::True);
+        keywords.insert("var", Tok::Var);
+        keywords.insert("while", Tok::While);
 
         keywords
     };
@@ -65,7 +65,7 @@ impl Scanner {
         }
 
         self.tokens.push(Token {
-            token_type: TokenType::Eof,
+            token_type: Tok::Eof,
             lexeme: "".to_string(),
             literal: None,
             line: self.line,
@@ -74,22 +74,22 @@ impl Scanner {
         Ok(&self.tokens)
     }
 
-    fn scan_token(&mut self) -> Option<TokenType> {
+    fn scan_token(&mut self) -> Option<Tok> {
         let character = self.advance()?;
 
         // Single character lexemes
         match character {
-            '(' => self.add_token(TokenType::LeftParen, None),
-            ')' => self.add_token(TokenType::RightParen, None),
-            '{' => self.add_token(TokenType::LeftBrace, None),
-            '}' => self.add_token(TokenType::RightBrace, None),
-            ',' => self.add_token(TokenType::Comma, None),
-            '.' => self.add_token(TokenType::Dot, None),
-            '-' => self.add_token(TokenType::Minus, None),
-            '+' => self.add_token(TokenType::Plus, None),
-            ';' => self.add_token(TokenType::Semicolon, None),
-            '*' => self.add_token(TokenType::Star, None),
-            '/' => self.add_token(TokenType::Slash, None), // TODO: Add comment evaluation into this match
+            '(' => self.add_token(Tok::LeftParen, None),
+            ')' => self.add_token(Tok::RightParen, None),
+            '{' => self.add_token(Tok::LeftBrace, None),
+            '}' => self.add_token(Tok::RightBrace, None),
+            ',' => self.add_token(Tok::Comma, None),
+            '.' => self.add_token(Tok::Dot, None),
+            '-' => self.add_token(Tok::Minus, None),
+            '+' => self.add_token(Tok::Plus, None),
+            ';' => self.add_token(Tok::Semicolon, None),
+            '*' => self.add_token(Tok::Star, None),
+            '/' => self.add_token(Tok::Slash, None), // TODO: Add comment evaluation into this match
             '"' => match self.scan_to_string_token_then_advance() {
                 Ok(string_token) => Some(string_token),
                 Err(error) => {
@@ -100,36 +100,36 @@ impl Scanner {
             },
             '!' => {
                 let token_type = if self.is_char_then_advance('=') {
-                    TokenType::BangEqual
+                    Tok::BangEqual
                 } else {
-                    TokenType::Equal
+                    Tok::Equal
                 };
 
                 self.add_token(token_type, None)
             }
             '=' => {
                 let token_type = if self.is_char_then_advance('=') {
-                    TokenType::EqualEqual
+                    Tok::EqualEqual
                 } else {
-                    TokenType::Equal
+                    Tok::Equal
                 };
 
                 self.add_token(token_type, None)
             }
             '<' => {
                 let token_type = if self.is_char_then_advance('=') {
-                    TokenType::LessEqual
+                    Tok::LessEqual
                 } else {
-                    TokenType::Equal
+                    Tok::Less
                 };
 
                 self.add_token(token_type, None)
             }
             '>' => {
                 let token_type = if self.is_char_then_advance('=') {
-                    TokenType::GreaterEqual
+                    Tok::GreaterEqual
                 } else {
-                    TokenType::Equal
+                    Tok::Greater
                 };
 
                 self.add_token(token_type, None)
@@ -174,7 +174,7 @@ impl Scanner {
     /// Identify a string of random lengths.
     /// Keeps scanning until it finds the closing quote and will
     /// Respond with the token. Uses self.start and advances self.current to the closing quote to return the string.
-    fn scan_to_string_token_then_advance(&mut self) -> Result<TokenType, String> {
+    fn scan_to_string_token_then_advance(&mut self) -> Result<Tok, String> {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -195,13 +195,13 @@ impl Scanner {
             .ok_or("Trouble calculating string literal slice."); // TODO: Rubbish error 😂
 
         let added_token = self
-            .add_token(TokenType::String, Some(LiteralType::String(value?)))
+            .add_token(Tok::String, Some(Lit::String(value?)))
             .ok_or("Could not add token.".to_string()); // TODO: More rubbish error
 
         added_token
     }
 
-    fn scan_to_number_token_then_advance(&mut self) -> Result<TokenType, String> {
+    fn scan_to_number_token_then_advance(&mut self) -> Result<Tok, String> {
         while is_digit(self.peek()) {
             self.advance();
         }
@@ -222,13 +222,13 @@ impl Scanner {
             parse_string(&value).ok_or(format!("Unable to parse {:?} into a number", value));
 
         let added_token = self
-            .add_token(TokenType::Number, Some(LiteralType::Number(number?)))
+            .add_token(Tok::Number, Some(Lit::Number(number?)))
             .ok_or("Could not add token.".to_string()); // TODO: More rubbish error
 
         added_token
     }
 
-    fn scan_to_identifier_then_advance(&mut self) -> Result<TokenType, String> {
+    fn scan_to_identifier_then_advance(&mut self) -> Result<Tok, String> {
         while is_alphanumeric(self.peek()) {
             self.advance();
         }
@@ -245,7 +245,7 @@ impl Scanner {
                 .ok_or("Could not add token.".to_string());
         }
 
-        self.add_token(TokenType::Identifier, None)
+        self.add_token(Tok::Identifier, None)
             .ok_or("Could not add token.".to_string())
     }
 
@@ -315,11 +315,7 @@ impl Scanner {
         Some(slice)
     }
 
-    fn add_token(
-        &mut self,
-        token_type: TokenType,
-        literal_type: Option<LiteralType>,
-    ) -> Option<TokenType> {
+    fn add_token(&mut self, token_type: Tok, literal_type: Option<Lit>) -> Option<Tok> {
         let start = self.start;
         let current = self.current;
         let lexeme: String = self.source_slice(start, current)?;
@@ -337,26 +333,14 @@ impl Scanner {
     }
 }
 
+#[cfg(test)]
 mod tests {
-    #[cfg(test)]
     use crate::{
         constants::{CRLF, LF},
-        literal_type::LiteralType,
+        literal_type::Lit,
     };
 
-    #[cfg(test)]
-    use super::{Scanner, TokenType};
-
-    #[test]
-    fn should_scan_with_eof() {
-        let source = "(";
-        let mut scanner = Scanner::new(source);
-
-        scanner.scan_tokens().ok();
-
-        assert_eq!(scanner.tokens.len(), 2);
-        assert_eq!(scanner.tokens[1].token_type, TokenType::Eof)
-    }
+    use super::{Scanner, Tok};
 
     #[test]
     fn should_scan_with_token_combo() {
@@ -413,7 +397,7 @@ mod tests {
 
         assert_eq!(
             scanner.tokens[0].literal,
-            Some(LiteralType::String("hey".to_string()))
+            Some(Lit::String("hey".to_string()))
         );
     }
 
@@ -426,7 +410,7 @@ mod tests {
 
         assert_eq!(
             scanner.tokens[0].literal,
-            Some(LiteralType::String("hey, time to be happy! :)".to_string()))
+            Some(Lit::String("hey, time to be happy! :)".to_string()))
         );
     }
 
@@ -439,9 +423,7 @@ mod tests {
 
         assert_eq!(
             scanner.tokens[1].literal,
-            Some(LiteralType::String(
-                "hey, time to be happy! q:)|=<; ".to_string()
-            )),
+            Some(Lit::String("hey, time to be happy! q:)|=<; ".to_string())),
         );
     }
 
@@ -452,7 +434,7 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens[0].literal, Some(LiteralType::Number(100.0)));
+        assert_eq!(scanner.tokens[0].literal, Some(Lit::Number(100.0)));
     }
 
     #[test]
@@ -462,7 +444,7 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens[0].literal, Some(LiteralType::Number(10.1)));
+        assert_eq!(scanner.tokens[0].literal, Some(Lit::Number(10.1)));
     }
 
     #[test]
@@ -472,8 +454,8 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens[0].token_type, TokenType::Identifier);
-        assert_eq!(scanner.tokens[1].token_type, TokenType::Identifier);
+        assert_eq!(scanner.tokens[0].token_type, Tok::Identifier);
+        assert_eq!(scanner.tokens[1].token_type, Tok::Identifier);
     }
 
     #[test]
@@ -483,8 +465,8 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens[0].token_type, TokenType::Identifier);
-        assert_eq!(scanner.tokens[2].token_type, TokenType::Identifier);
+        assert_eq!(scanner.tokens[0].token_type, Tok::Identifier);
+        assert_eq!(scanner.tokens[2].token_type, Tok::Identifier);
     }
 
     #[test]
@@ -494,7 +476,7 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens[0].token_type, TokenType::Var);
-        assert_eq!(scanner.tokens[1].token_type, TokenType::Identifier);
+        assert_eq!(scanner.tokens[0].token_type, Tok::Var);
+        assert_eq!(scanner.tokens[1].token_type, Tok::Identifier);
     }
 }

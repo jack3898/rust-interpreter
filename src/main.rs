@@ -1,5 +1,6 @@
 mod ast;
 mod constants;
+mod interpreter;
 mod literal_type;
 mod run;
 mod run_file;

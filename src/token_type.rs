@@ -1,5 +1,5 @@
 #[derive(Debug, Clone, PartialEq)]
-pub enum TokenType {
+pub enum Tok {
     // Single char tokens
     LeftParen,
     RightParen,

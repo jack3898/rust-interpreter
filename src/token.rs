@@ -1,8 +1,8 @@
-use crate::{literal_type::LiteralType, token_type::TokenType};
+use crate::{literal_type::Lit, token_type::Tok};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Token {
-    pub token_type: TokenType,
+    pub token_type: Tok,
     /**
      * The lexeme is the actual text that was matched for this token.
      */
@@ -10,7 +10,7 @@ pub struct Token {
     /**
      * The literal is the memory value of the token.
      */
-    pub literal: Option<LiteralType>,
+    pub literal: Option<Lit>,
     pub line: usize,
 }
 

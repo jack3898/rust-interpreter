@@ -1,4 +1,4 @@
-use crate::{literal_type::LiteralType, token::Token};
+use crate::{literal_type::Lit, token::Token};
 
 pub enum Expr {
     // two-operands (the items on either side of the operator) like 1 + 1 or 3 != 2
@@ -11,7 +11,7 @@ pub enum Expr {
         expression: Box<Expr>,
     },
     Literal {
-        value: LiteralType,
+        value: Lit,
     },
     // something like !x or x++
     Unary {
@@ -21,6 +21,7 @@ pub enum Expr {
 }
 
 impl Expr {
+    #[allow(dead_code)]
     pub fn to_string(&self) -> String {
         match self {
             Self::Binary {
@@ -40,35 +41,28 @@ impl Expr {
             }
         }
     }
-
-    // pub fn print(&self) {
-    //     println!("{}", self.to_string());
-    // }
 }
 
+#[cfg(test)]
 mod tests {
-    #[cfg(test)]
-    use crate::literal_type::LiteralType;
-    #[cfg(test)]
-    use crate::{token::Token, token_type::TokenType};
-
-    #[cfg(test)]
     use super::Expr;
+    use crate::literal_type::Lit;
+    use crate::{token::Token, token_type::Tok};
 
     #[test]
     fn should_pretty_print_plus() {
         let ast = Expr::Binary {
             left: Box::from(Expr::Literal {
-                value: LiteralType::Number(5.0),
+                value: Lit::Number(5.0),
             }),
             operator: Token {
                 lexeme: "+".to_string(),
                 line: 1,
                 literal: None,
-                token_type: TokenType::Plus,
+                token_type: Tok::Plus,
             },
             right: Box::from(Expr::Literal {
-                value: LiteralType::Number(3.0),
+                value: Lit::Number(3.0),
             }),
         };
 
@@ -84,10 +78,10 @@ mod tests {
                         lexeme: "/".to_string(),
                         line: 1,
                         literal: None,
-                        token_type: TokenType::Slash,
+                        token_type: Tok::Slash,
                     },
                     right: Box::from(Expr::Literal {
-                        value: LiteralType::Number(1.0),
+                        value: Lit::Number(1.0),
                     }),
                 }),
             }),
@@ -95,10 +89,10 @@ mod tests {
                 lexeme: "+".to_string(),
                 line: 1,
                 literal: None,
-                token_type: TokenType::Plus,
+                token_type: Tok::Plus,
             },
             right: Box::from(Expr::Literal {
-                value: LiteralType::Number(3.0),
+                value: Lit::Number(3.0),
             }),
         };
 
