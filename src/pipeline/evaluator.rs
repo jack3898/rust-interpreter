@@ -2,11 +2,11 @@
 
 use crate::types::{expr::Expr, literal_type::Lit, token_type::TokType};
 
-pub struct Interpreter<'a> {
+pub struct Evaluator<'a> {
     expression: &'a Expr,
 }
 
-impl<'a> Interpreter<'a> {
+impl<'a> Evaluator<'a> {
     pub fn new(expression: &'a Expr) -> Self {
         Self { expression }
     }
@@ -117,7 +117,7 @@ impl<'a> Interpreter<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        pipeline::interpreter::Interpreter,
+        pipeline::evaluator::Evaluator,
         types::{expr::Expr, literal_type::Lit, token::Tok, token_type::TokType},
     };
 
@@ -142,7 +142,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Bool(true)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Bool(false));
@@ -155,7 +155,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(0.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(result, Ok(Lit::Bool(true)))
@@ -168,7 +168,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(result, Ok(Lit::Bool(false)))
@@ -181,7 +181,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Number(-1.0));
@@ -194,7 +194,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Number(1.0));
@@ -207,7 +207,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(0.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Number(0.0));
@@ -223,7 +223,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Number(3.0));
@@ -237,7 +237,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Number(-1.0));
@@ -251,7 +251,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Number(4.0));
@@ -265,7 +265,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Number(1.0));
@@ -279,7 +279,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Bool(true));
@@ -293,7 +293,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Bool(true));
@@ -307,7 +307,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Bool(true));
@@ -321,7 +321,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Bool(true));
@@ -335,7 +335,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Bool(true));
@@ -349,7 +349,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Bool(true));
@@ -363,7 +363,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Bool(true)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(result, Ok(Lit::Bool(true)));
@@ -377,7 +377,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(result, Ok(Lit::Bool(false)));
@@ -391,7 +391,7 @@ mod tests {
             right: test_create_expr_literal(Lit::String("World".to_string())),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(result, Ok(Lit::String("HelloWorld".to_string())));
@@ -405,7 +405,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(matches!(result, Err(_)), true);
@@ -419,7 +419,7 @@ mod tests {
             right: test_create_expr_literal(Lit::String("Hello".to_string())),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(matches!(result, Err(_)), true);
@@ -433,7 +433,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Bool(true)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(matches!(result, Err(_)), true);
@@ -447,7 +447,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(matches!(result, Err(_)), true);
@@ -461,7 +461,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Bool(true)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(matches!(result, Err(_)), true);
@@ -475,7 +475,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Bool(true)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(matches!(result, Err(_)), true);
@@ -489,7 +489,7 @@ mod tests {
             right: test_create_expr_literal(Lit::String("Hello".to_string())),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(matches!(result, Err(_)), true);
@@ -503,7 +503,7 @@ mod tests {
             right: test_create_expr_literal(Lit::Nil),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(matches!(result, Err(_)), true);
@@ -517,7 +517,7 @@ mod tests {
             right: test_create_expr_literal(Lit::String("Hello".to_string())),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None);
 
         assert_eq!(matches!(result, Err(_)), true);
@@ -530,7 +530,7 @@ mod tests {
             expression: test_create_expr_literal(Lit::Number(1.0)),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Number(1.0));
@@ -546,7 +546,7 @@ mod tests {
             }),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Number(3.0));
@@ -561,7 +561,7 @@ mod tests {
             }),
         };
 
-        let interpreter = Interpreter::new(&expression);
+        let interpreter = Evaluator::new(&expression);
         let result = interpreter.evaluate(None).unwrap();
 
         assert_eq!(result, Lit::Number(-1.0));
