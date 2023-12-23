@@ -1,8 +1,8 @@
-use crate::{literal_type::Lit, token_type::Tok};
+use super::{literal_type::Lit, token_type::TokType};
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Token {
-    pub token_type: Tok,
+pub struct Tok {
+    pub token_type: TokType,
     /**
      * The lexeme is the actual text that was matched for this token.
      */
@@ -14,7 +14,7 @@ pub struct Token {
     pub line: usize,
 }
 
-impl Token {
+impl Tok {
     // pub fn new(
     //     token_type: TokenType,
     //     lexeme: String,

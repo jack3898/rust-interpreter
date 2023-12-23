@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    literal_type::Lit,
-    token::Token,
-    token_type::Tok,
+    types::{literal_type::Lit, token::Tok, token_type::TokType},
     util::string::{is_alpha, is_alphanumeric, is_digit, parse_string},
 };
 
@@ -12,32 +10,32 @@ use lazy_static::lazy_static;
 #[derive(Debug)]
 pub struct Scanner {
     source: Vec<char>,
-    tokens: Vec<Token>,
+    tokens: Vec<Tok>,
     start: usize,
     current: usize,
     line: usize,
 }
 
 lazy_static! {
-    static ref KEYWORDS: HashMap<&'static str, Tok> = {
+    static ref KEYWORDS: HashMap<&'static str, TokType> = {
         let mut keywords = HashMap::new();
 
-        keywords.insert("and", Tok::And);
-        keywords.insert("class", Tok::Class);
-        keywords.insert("else", Tok::Else);
-        keywords.insert("false", Tok::False);
-        keywords.insert("for", Tok::For);
-        keywords.insert("fun", Tok::Fun);
-        keywords.insert("if", Tok::If);
-        keywords.insert("nil", Tok::Nil);
-        keywords.insert("or", Tok::Or);
-        keywords.insert("print", Tok::Print);
-        keywords.insert("return", Tok::Return);
-        keywords.insert("super", Tok::Super);
-        keywords.insert("this", Tok::This);
-        keywords.insert("true", Tok::True);
-        keywords.insert("var", Tok::Var);
-        keywords.insert("while", Tok::While);
+        keywords.insert("and", TokType::And);
+        keywords.insert("class", TokType::Class);
+        keywords.insert("else", TokType::Else);
+        keywords.insert("false", TokType::False);
+        keywords.insert("for", TokType::For);
+        keywords.insert("fun", TokType::Fun);
+        keywords.insert("if", TokType::If);
+        keywords.insert("nil", TokType::Nil);
+        keywords.insert("or", TokType::Or);
+        keywords.insert("print", TokType::Print);
+        keywords.insert("return", TokType::Return);
+        keywords.insert("super", TokType::Super);
+        keywords.insert("this", TokType::This);
+        keywords.insert("true", TokType::True);
+        keywords.insert("var", TokType::Var);
+        keywords.insert("while", TokType::While);
 
         keywords
     };
@@ -58,14 +56,14 @@ impl Scanner {
     /// Loops through all chars in the source,
     /// statefully updates self.start and self.current and finishes when at the final character
     /// To calculate what tokens are present
-    pub fn scan_tokens(&mut self) -> Result<&Vec<Token>, String> {
+    pub fn scan_tokens(&mut self) -> Result<&Vec<Tok>, String> {
         while !Self::is_at_end(self) {
             self.start = self.current;
             Self::scan_token(self);
         }
 
-        self.tokens.push(Token {
-            token_type: Tok::Eof,
+        self.tokens.push(Tok {
+            token_type: TokType::Eof,
             lexeme: "".to_string(),
             literal: None,
             line: self.line,
@@ -74,22 +72,22 @@ impl Scanner {
         Ok(&self.tokens)
     }
 
-    fn scan_token(&mut self) -> Option<Tok> {
+    fn scan_token(&mut self) -> Option<TokType> {
         let character = self.advance()?;
 
         // Single character lexemes
         match character {
-            '(' => self.add_token(Tok::LeftParen, None),
-            ')' => self.add_token(Tok::RightParen, None),
-            '{' => self.add_token(Tok::LeftBrace, None),
-            '}' => self.add_token(Tok::RightBrace, None),
-            ',' => self.add_token(Tok::Comma, None),
-            '.' => self.add_token(Tok::Dot, None),
-            '-' => self.add_token(Tok::Minus, None),
-            '+' => self.add_token(Tok::Plus, None),
-            ';' => self.add_token(Tok::Semicolon, None),
-            '*' => self.add_token(Tok::Star, None),
-            '/' => self.add_token(Tok::Slash, None), // TODO: Add comment evaluation into this match
+            '(' => self.add_token(TokType::LeftParen, None),
+            ')' => self.add_token(TokType::RightParen, None),
+            '{' => self.add_token(TokType::LeftBrace, None),
+            '}' => self.add_token(TokType::RightBrace, None),
+            ',' => self.add_token(TokType::Comma, None),
+            '.' => self.add_token(TokType::Dot, None),
+            '-' => self.add_token(TokType::Minus, None),
+            '+' => self.add_token(TokType::Plus, None),
+            ';' => self.add_token(TokType::Semicolon, None),
+            '*' => self.add_token(TokType::Star, None),
+            '/' => self.add_token(TokType::Slash, None), // TODO: Add comment evaluation into this match
             '"' => match self.scan_to_string_token_then_advance() {
                 Ok(string_token) => Some(string_token),
                 Err(error) => {
@@ -100,36 +98,36 @@ impl Scanner {
             },
             '!' => {
                 let token_type = if self.is_char_then_advance('=') {
-                    Tok::BangEqual
+                    TokType::BangEqual
                 } else {
-                    Tok::Equal
+                    TokType::Equal
                 };
 
                 self.add_token(token_type, None)
             }
             '=' => {
                 let token_type = if self.is_char_then_advance('=') {
-                    Tok::EqualEqual
+                    TokType::EqualEqual
                 } else {
-                    Tok::Equal
+                    TokType::Equal
                 };
 
                 self.add_token(token_type, None)
             }
             '<' => {
                 let token_type = if self.is_char_then_advance('=') {
-                    Tok::LessEqual
+                    TokType::LessEqual
                 } else {
-                    Tok::Less
+                    TokType::Less
                 };
 
                 self.add_token(token_type, None)
             }
             '>' => {
                 let token_type = if self.is_char_then_advance('=') {
-                    Tok::GreaterEqual
+                    TokType::GreaterEqual
                 } else {
-                    Tok::Greater
+                    TokType::Greater
                 };
 
                 self.add_token(token_type, None)
@@ -174,7 +172,7 @@ impl Scanner {
     /// Identify a string of random lengths.
     /// Keeps scanning until it finds the closing quote and will
     /// Respond with the token. Uses self.start and advances self.current to the closing quote to return the string.
-    fn scan_to_string_token_then_advance(&mut self) -> Result<Tok, String> {
+    fn scan_to_string_token_then_advance(&mut self) -> Result<TokType, String> {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -195,13 +193,13 @@ impl Scanner {
             .ok_or("Trouble calculating string literal slice."); // TODO: Rubbish error 😂
 
         let added_token = self
-            .add_token(Tok::String, Some(Lit::String(value?)))
+            .add_token(TokType::String, Some(Lit::String(value?)))
             .ok_or("Could not add token.".to_string()); // TODO: More rubbish error
 
         added_token
     }
 
-    fn scan_to_number_token_then_advance(&mut self) -> Result<Tok, String> {
+    fn scan_to_number_token_then_advance(&mut self) -> Result<TokType, String> {
         while is_digit(self.peek()) {
             self.advance();
         }
@@ -222,13 +220,13 @@ impl Scanner {
             parse_string(&value).ok_or(format!("Unable to parse {:?} into a number", value));
 
         let added_token = self
-            .add_token(Tok::Number, Some(Lit::Number(number?)))
+            .add_token(TokType::Number, Some(Lit::Number(number?)))
             .ok_or("Could not add token.".to_string()); // TODO: More rubbish error
 
         added_token
     }
 
-    fn scan_to_identifier_then_advance(&mut self) -> Result<Tok, String> {
+    fn scan_to_identifier_then_advance(&mut self) -> Result<TokType, String> {
         while is_alphanumeric(self.peek()) {
             self.advance();
         }
@@ -245,7 +243,7 @@ impl Scanner {
                 .ok_or("Could not add token.".to_string());
         }
 
-        self.add_token(Tok::Identifier, None)
+        self.add_token(TokType::Identifier, None)
             .ok_or("Could not add token.".to_string())
     }
 
@@ -315,12 +313,12 @@ impl Scanner {
         Some(slice)
     }
 
-    fn add_token(&mut self, token_type: Tok, literal_type: Option<Lit>) -> Option<Tok> {
+    fn add_token(&mut self, token_type: TokType, literal_type: Option<Lit>) -> Option<TokType> {
         let start = self.start;
         let current = self.current;
         let lexeme: String = self.source_slice(start, current)?;
 
-        let token = Token {
+        let token = Tok {
             token_type: token_type.clone(),
             lexeme,
             literal: literal_type,
@@ -337,10 +335,10 @@ impl Scanner {
 mod tests {
     use crate::{
         constants::{CRLF, LF},
-        literal_type::Lit,
+        types::literal_type::Lit,
     };
 
-    use super::{Scanner, Tok};
+    use super::{Scanner, TokType};
 
     #[test]
     fn should_scan_with_token_combo() {
@@ -454,8 +452,8 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens[0].token_type, Tok::Identifier);
-        assert_eq!(scanner.tokens[1].token_type, Tok::Identifier);
+        assert_eq!(scanner.tokens[0].token_type, TokType::Identifier);
+        assert_eq!(scanner.tokens[1].token_type, TokType::Identifier);
     }
 
     #[test]
@@ -465,8 +463,8 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens[0].token_type, Tok::Identifier);
-        assert_eq!(scanner.tokens[2].token_type, Tok::Identifier);
+        assert_eq!(scanner.tokens[0].token_type, TokType::Identifier);
+        assert_eq!(scanner.tokens[2].token_type, TokType::Identifier);
     }
 
     #[test]
@@ -476,7 +474,7 @@ mod tests {
 
         scanner.scan_tokens().ok();
 
-        assert_eq!(scanner.tokens[0].token_type, Tok::Var);
-        assert_eq!(scanner.tokens[1].token_type, Tok::Identifier);
+        assert_eq!(scanner.tokens[0].token_type, TokType::Var);
+        assert_eq!(scanner.tokens[1].token_type, TokType::Identifier);
     }
 }

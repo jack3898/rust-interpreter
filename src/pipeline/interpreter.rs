@@ -1,6 +1,6 @@
-use crate::{ast::ast::Expr, literal_type::Lit, token_type::Tok};
-
 // Yeah, this could be broken up. But I'm lazy and it works, and I will refactor it later.
+
+use crate::types::{expr::Expr, literal_type::Lit, token_type::TokType};
 
 pub struct Interpreter<'a> {
     expression: &'a Expr,
@@ -22,9 +22,9 @@ impl<'a> Interpreter<'a> {
 
                 if let Lit::Number(num) = right {
                     return match operator.token_type {
-                        Tok::Minus => Ok(Lit::Number(-(num))),
-                        Tok::Plus => Ok(Lit::Number(num)),
-                        Tok::Bang => Ok(Lit::Bool(num == 0.0)),
+                        TokType::Minus => Ok(Lit::Number(-(num))),
+                        TokType::Plus => Ok(Lit::Number(num)),
+                        TokType::Bang => Ok(Lit::Bool(num == 0.0)),
                         _ => Err(
                             "Unexpected token type when evaluating unary for number evaluation."
                                 .to_string(),
@@ -34,7 +34,7 @@ impl<'a> Interpreter<'a> {
 
                 if let Lit::Bool(boolean) = right {
                     return match operator.token_type {
-                        Tok::Bang => Ok(Lit::Bool(!boolean)),
+                        TokType::Bang => Ok(Lit::Bool(!boolean)),
                         _ => Err(
                             "Unexpected token type when evaluating unary for boolean evaluation."
                                 .to_string(),
@@ -60,13 +60,13 @@ impl<'a> Interpreter<'a> {
                 let literals = (self.evaluate(Some(&left))?, self.evaluate(Some(&right))?);
 
                 match operator.token_type {
-                    Tok::EqualEqual => {
+                    TokType::EqualEqual => {
                         return Ok(Lit::Bool(literals.0 == literals.1));
                     }
-                    Tok::BangEqual => {
+                    TokType::BangEqual => {
                         return Ok(Lit::Bool(literals.0 != literals.1));
                     }
-                    Tok::Plus => match literals {
+                    TokType::Plus => match literals {
                         (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Number(l + r)),
                         (Lit::String(l), Lit::String(r)) => {
                             return Ok(Lit::String(format!("{}{}", l, r)))
@@ -77,49 +77,49 @@ impl<'a> Interpreter<'a> {
                             )
                         }
                     },
-                    Tok::Minus => match literals {
+                    TokType::Minus => match literals {
                         (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Number(l - r)),
                         _ => {
                             return Err("Attempt to subtract two unmatching or illegal data types."
                                 .to_string())
                         }
                     },
-                    Tok::Slash => match literals {
+                    TokType::Slash => match literals {
                         (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Number(l / r)),
                         _ => {
                             return Err("Attempt to divide two unmatching or illegal data types."
                                 .to_string())
                         }
                     },
-                    Tok::Star => match literals {
+                    TokType::Star => match literals {
                         (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Number(l * r)),
                         _ => {
                             return Err("Attempt to multiply two unmatching or illegal data types."
                                 .to_string())
                         }
                     },
-                    Tok::Greater => match literals {
+                    TokType::Greater => match literals {
                         (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Bool(l > r)),
                         (Lit::String(l), Lit::String(r)) => {
                             return Ok(Lit::Bool(l.len() > r.len()));
                         }
                         _ => return Err("Invalid use of greater operator.".to_string()),
                     },
-                    Tok::GreaterEqual => match literals {
+                    TokType::GreaterEqual => match literals {
                         (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Bool(l >= r)),
                         (Lit::String(l), Lit::String(r)) => {
                             return Ok(Lit::Bool(l.len() >= r.len()));
                         }
                         _ => return Err("Invalid use of greater-equal operator.".to_string()),
                     },
-                    Tok::Less => match literals {
+                    TokType::Less => match literals {
                         (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Bool(l < r)),
                         (Lit::String(l), Lit::String(r)) => {
                             return Ok(Lit::Bool(l.len() < r.len()));
                         }
                         _ => return Err("Invalid use of less operator.".to_string()),
                     },
-                    Tok::LessEqual => match literals {
+                    TokType::LessEqual => match literals {
                         (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Bool(l <= r)),
                         (Lit::String(l), Lit::String(r)) => {
                             return Ok(Lit::Bool(l.len() <= r.len()));
@@ -138,16 +138,16 @@ impl<'a> Interpreter<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::ast::Expr, interpreter::interpreter::Interpreter, literal_type::Lit, token::Token,
-        token_type::Tok,
+        pipeline::interpreter::Interpreter,
+        types::{expr::Expr, literal_type::Lit, token::Tok, token_type::TokType},
     };
 
     fn test_create_expr_literal(literal: Lit) -> Box<Expr> {
         Box::new(Expr::Literal { value: literal })
     }
 
-    fn test_create_operator(operator: Tok, lexeme: &str) -> Token {
-        Token {
+    fn test_create_operator(operator: TokType, lexeme: &str) -> Tok {
+        Tok {
             token_type: operator,
             lexeme: lexeme.to_string(),
             literal: None,
@@ -159,7 +159,7 @@ mod tests {
     #[test]
     fn should_evaluate_unary_bang() {
         let expression = Expr::Unary {
-            operator: test_create_operator(Tok::Bang, "!"),
+            operator: test_create_operator(TokType::Bang, "!"),
             right: test_create_expr_literal(Lit::Bool(true)),
         };
 
@@ -172,7 +172,7 @@ mod tests {
     #[test]
     fn should_evaluate_unary_bang_with_0_number() {
         let expression = Expr::Unary {
-            operator: test_create_operator(Tok::Bang, "!"),
+            operator: test_create_operator(TokType::Bang, "!"),
             right: test_create_expr_literal(Lit::Number(0.0)),
         };
 
@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn should_evaluate_unary_bang_with_other_number() {
         let expression = Expr::Unary {
-            operator: test_create_operator(Tok::Bang, "!"),
+            operator: test_create_operator(TokType::Bang, "!"),
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
@@ -198,7 +198,7 @@ mod tests {
     #[test]
     fn should_evaluate_unary_minus() {
         let expression = Expr::Unary {
-            operator: test_create_operator(Tok::Minus, "-"),
+            operator: test_create_operator(TokType::Minus, "-"),
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
@@ -211,7 +211,7 @@ mod tests {
     #[test]
     fn should_evaluate_unary_plus() {
         let expression = Expr::Unary {
-            operator: test_create_operator(Tok::Plus, "+"),
+            operator: test_create_operator(TokType::Plus, "+"),
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
@@ -224,7 +224,7 @@ mod tests {
     #[test]
     fn should_evaluate_unary_plus_with_0_number() {
         let expression = Expr::Unary {
-            operator: test_create_operator(Tok::Plus, "+"),
+            operator: test_create_operator(TokType::Plus, "+"),
             right: test_create_expr_literal(Lit::Number(0.0)),
         };
 
@@ -240,7 +240,7 @@ mod tests {
     fn should_sum_numbers() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(1.0)),
-            operator: test_create_operator(Tok::Plus, "+"),
+            operator: test_create_operator(TokType::Plus, "+"),
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
@@ -254,7 +254,7 @@ mod tests {
     fn should_subtract_numbers() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(1.0)),
-            operator: test_create_operator(Tok::Minus, "-"),
+            operator: test_create_operator(TokType::Minus, "-"),
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
@@ -268,7 +268,7 @@ mod tests {
     fn should_multiply_numbers() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(2.0)),
-            operator: test_create_operator(Tok::Star, "*"),
+            operator: test_create_operator(TokType::Star, "*"),
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
@@ -282,7 +282,7 @@ mod tests {
     fn should_divide_numbers() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(2.0)),
-            operator: test_create_operator(Tok::Slash, "/"),
+            operator: test_create_operator(TokType::Slash, "/"),
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
@@ -296,7 +296,7 @@ mod tests {
     fn should_evaluate_greater_than() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(2.0)),
-            operator: test_create_operator(Tok::Greater, ">"),
+            operator: test_create_operator(TokType::Greater, ">"),
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
@@ -310,7 +310,7 @@ mod tests {
     fn should_evaluate_greater_than_equal() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(2.0)),
-            operator: test_create_operator(Tok::GreaterEqual, ">="),
+            operator: test_create_operator(TokType::GreaterEqual, ">="),
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
@@ -324,7 +324,7 @@ mod tests {
     fn should_evaluate_less_than() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(1.0)),
-            operator: test_create_operator(Tok::Less, "<"),
+            operator: test_create_operator(TokType::Less, "<"),
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
@@ -338,7 +338,7 @@ mod tests {
     fn should_evaluate_less_than_equal() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(1.0)),
-            operator: test_create_operator(Tok::LessEqual, "<="),
+            operator: test_create_operator(TokType::LessEqual, "<="),
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
@@ -352,7 +352,7 @@ mod tests {
     fn should_evaluate_equal_equal() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(1.0)),
-            operator: test_create_operator(Tok::EqualEqual, "=="),
+            operator: test_create_operator(TokType::EqualEqual, "=="),
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
@@ -366,7 +366,7 @@ mod tests {
     fn should_evaluate_bang_equal() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(1.0)),
-            operator: test_create_operator(Tok::BangEqual, "!="),
+            operator: test_create_operator(TokType::BangEqual, "!="),
             right: test_create_expr_literal(Lit::Number(2.0)),
         };
 
@@ -380,7 +380,7 @@ mod tests {
     fn should_evaluate_bang_equal_with_different_types() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(1.0)),
-            operator: test_create_operator(Tok::BangEqual, "!="),
+            operator: test_create_operator(TokType::BangEqual, "!="),
             right: test_create_expr_literal(Lit::Bool(true)),
         };
 
@@ -394,7 +394,7 @@ mod tests {
     fn should_evaluate_bang_equal_with_same_types() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(1.0)),
-            operator: test_create_operator(Tok::BangEqual, "!="),
+            operator: test_create_operator(TokType::BangEqual, "!="),
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
@@ -408,7 +408,7 @@ mod tests {
     fn should_evaluate_plus_with_strings() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::String("Hello".to_string())),
-            operator: test_create_operator(Tok::Plus, "+"),
+            operator: test_create_operator(TokType::Plus, "+"),
             right: test_create_expr_literal(Lit::String("World".to_string())),
         };
 
@@ -422,7 +422,7 @@ mod tests {
     fn should_evaluate_plus_with_string_and_number() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::String("Hello".to_string())),
-            operator: test_create_operator(Tok::Plus, "+"),
+            operator: test_create_operator(TokType::Plus, "+"),
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
@@ -439,7 +439,7 @@ mod tests {
     fn should_evaluate_plus_with_number_and_string() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(1.0)),
-            operator: test_create_operator(Tok::Plus, "+"),
+            operator: test_create_operator(TokType::Plus, "+"),
             right: test_create_expr_literal(Lit::String("Hello".to_string())),
         };
 
@@ -456,7 +456,7 @@ mod tests {
     fn should_evaluate_plus_with_number_and_bool() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Number(1.0)),
-            operator: test_create_operator(Tok::Plus, "+"),
+            operator: test_create_operator(TokType::Plus, "+"),
             right: test_create_expr_literal(Lit::Bool(true)),
         };
 
@@ -473,7 +473,7 @@ mod tests {
     fn should_evaluate_plus_with_bool_and_number() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Bool(true)),
-            operator: test_create_operator(Tok::Plus, "+"),
+            operator: test_create_operator(TokType::Plus, "+"),
             right: test_create_expr_literal(Lit::Number(1.0)),
         };
 
@@ -490,7 +490,7 @@ mod tests {
     fn should_evaluate_plus_with_bool_and_bool() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Bool(true)),
-            operator: test_create_operator(Tok::Plus, "+"),
+            operator: test_create_operator(TokType::Plus, "+"),
             right: test_create_expr_literal(Lit::Bool(true)),
         };
 
@@ -507,7 +507,7 @@ mod tests {
     fn should_evaluate_plus_with_string_and_bool() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::String("Hello".to_string())),
-            operator: test_create_operator(Tok::Plus, "+"),
+            operator: test_create_operator(TokType::Plus, "+"),
             right: test_create_expr_literal(Lit::Bool(true)),
         };
 
@@ -524,7 +524,7 @@ mod tests {
     fn should_evaluate_plus_with_bool_and_string() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Bool(true)),
-            operator: test_create_operator(Tok::Plus, "+"),
+            operator: test_create_operator(TokType::Plus, "+"),
             right: test_create_expr_literal(Lit::String("Hello".to_string())),
         };
 
@@ -541,7 +541,7 @@ mod tests {
     fn should_evaluate_plus_with_string_and_nil() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::String("Hello".to_string())),
-            operator: test_create_operator(Tok::Plus, "+"),
+            operator: test_create_operator(TokType::Plus, "+"),
             right: test_create_expr_literal(Lit::Nil),
         };
 
@@ -558,7 +558,7 @@ mod tests {
     fn should_evaluate_plus_with_nil_and_string() {
         let expression = Expr::Binary {
             left: test_create_expr_literal(Lit::Nil),
-            operator: test_create_operator(Tok::Plus, "+"),
+            operator: test_create_operator(TokType::Plus, "+"),
             right: test_create_expr_literal(Lit::String("Hello".to_string())),
         };
 
@@ -589,7 +589,7 @@ mod tests {
         let expression = Expr::Grouping {
             expression: Box::new(Expr::Binary {
                 left: test_create_expr_literal(Lit::Number(1.0)),
-                operator: test_create_operator(Tok::Plus, "+"),
+                operator: test_create_operator(TokType::Plus, "+"),
                 right: test_create_expr_literal(Lit::Number(2.0)),
             }),
         };
@@ -604,7 +604,7 @@ mod tests {
     fn should_evaluate_grouping_with_unary() {
         let expression = Expr::Grouping {
             expression: Box::new(Expr::Unary {
-                operator: test_create_operator(Tok::Minus, "-"),
+                operator: test_create_operator(TokType::Minus, "-"),
                 right: test_create_expr_literal(Lit::Number(1.0)),
             }),
         };

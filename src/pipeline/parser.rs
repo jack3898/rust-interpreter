@@ -1,16 +1,14 @@
-use crate::{literal_type::Lit, token::Token, token_type::Tok};
-
-use super::ast::Expr;
+use crate::types::{expr::Expr, literal_type::Lit, token::Tok, token_type::TokType};
 
 // I know there is so much repetition in this file and unoptimised code 🤣 but it'll do for my first prototype
 
 pub struct Parser<'a> {
-    tokens: &'a Vec<Token>,
+    tokens: &'a Vec<Tok>,
     current: usize,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(tokens: &'a Vec<Token>) -> Self {
+    pub fn new(tokens: &'a Vec<Tok>) -> Self {
         Self { current: 0, tokens }
     }
 
@@ -18,10 +16,10 @@ impl<'a> Parser<'a> {
         self.peek()
             .expect("Cannot pull token type from current index.")
             .token_type
-            == Tok::Eof
+            == TokType::Eof
     }
 
-    fn advance(&mut self) -> Option<&Token> {
+    fn advance(&mut self) -> Option<&Tok> {
         if !self.is_at_end() {
             self.current += 1;
         }
@@ -29,7 +27,7 @@ impl<'a> Parser<'a> {
         self.previous()
     }
 
-    fn advance_if_token(&mut self, token_type: &Tok) {
+    fn advance_if_token(&mut self, token_type: &TokType) {
         let token = self.peek().expect("Could not consume current token.");
 
         if token_type == &token.token_type {
@@ -37,11 +35,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn peek(&self) -> Option<&Token> {
+    fn peek(&self) -> Option<&Tok> {
         self.tokens.get(self.current)
     }
 
-    fn match_token(&self, token_type: &Tok) -> bool {
+    fn match_token(&self, token_type: &TokType) -> bool {
         if self.is_at_end() {
             return false;
         }
@@ -54,7 +52,7 @@ impl<'a> Parser<'a> {
     }
 
     // I could create a macro for variable length params, but this is cleaner and less confusing albeit slower
-    fn match_tokens_then_advance(&mut self, token_types: &Vec<Tok>) -> bool {
+    fn match_tokens_then_advance(&mut self, token_types: &Vec<TokType>) -> bool {
         for token_type in token_types {
             if self.match_token(token_type) {
                 self.advance();
@@ -66,7 +64,7 @@ impl<'a> Parser<'a> {
         false
     }
 
-    fn previous(&self) -> Option<&Token> {
+    fn previous(&self) -> Option<&Tok> {
         self.tokens.get(self.current - 1)
     }
 
@@ -80,7 +78,7 @@ impl<'a> Parser<'a> {
 
     fn equality(&mut self) -> Result<Expr, String> {
         let mut expr = self.comparison()?;
-        let token_types = [Tok::BangEqual, Tok::EqualEqual].to_vec();
+        let token_types = [TokType::BangEqual, TokType::EqualEqual].to_vec();
 
         while self.match_tokens_then_advance(&token_types) {
             let operator = self
@@ -101,7 +99,13 @@ impl<'a> Parser<'a> {
 
     fn comparison(&mut self) -> Result<Expr, String> {
         let mut expr = self.term()?;
-        let token_types = [Tok::Greater, Tok::GreaterEqual, Tok::Less, Tok::LessEqual].to_vec();
+        let token_types = [
+            TokType::Greater,
+            TokType::GreaterEqual,
+            TokType::Less,
+            TokType::LessEqual,
+        ]
+        .to_vec();
 
         while self.match_tokens_then_advance(&token_types) {
             let operator = self
@@ -122,7 +126,7 @@ impl<'a> Parser<'a> {
 
     fn term(&mut self) -> Result<Expr, String> {
         let mut expr = self.unary()?;
-        let token_types = [Tok::Minus, Tok::Plus, Tok::Star, Tok::Slash].to_vec();
+        let token_types = [TokType::Minus, TokType::Plus, TokType::Star, TokType::Slash].to_vec();
 
         while self.match_tokens_then_advance(&token_types) {
             let operator = self
@@ -143,7 +147,7 @@ impl<'a> Parser<'a> {
 
     fn factor(&mut self) -> Result<Expr, String> {
         let mut expr = self.unary()?;
-        let token_types = [Tok::Minus, Tok::Plus].to_vec();
+        let token_types = [TokType::Minus, TokType::Plus].to_vec();
 
         while self.match_tokens_then_advance(&token_types) {
             let operator = self
@@ -163,7 +167,7 @@ impl<'a> Parser<'a> {
     }
 
     fn unary(&mut self) -> Result<Expr, String> {
-        let token_types = [Tok::Bang, Tok::Minus].to_vec();
+        let token_types = [TokType::Bang, TokType::Minus].to_vec();
 
         if self.match_tokens_then_advance(&token_types) {
             let operator = self
@@ -184,23 +188,23 @@ impl<'a> Parser<'a> {
     }
 
     fn primary(&mut self) -> Result<Expr, String> {
-        if self.match_tokens_then_advance(&[Tok::True].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::True].to_vec()) {
             return Ok(Expr::Literal {
                 value: Lit::Bool(true),
             });
         }
 
-        if self.match_tokens_then_advance(&[Tok::False].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::False].to_vec()) {
             return Ok(Expr::Literal {
                 value: Lit::Bool(false),
             });
         }
 
-        if self.match_tokens_then_advance(&[Tok::Nil].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::Nil].to_vec()) {
             return Ok(Expr::Literal { value: Lit::Nil });
         }
 
-        if self.match_tokens_then_advance(&[Tok::Number, Tok::String].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::Number, TokType::String].to_vec()) {
             return Ok(Expr::Literal {
                 value: self
                     .previous()
@@ -211,10 +215,10 @@ impl<'a> Parser<'a> {
             });
         }
 
-        if self.match_tokens_then_advance(&[Tok::LeftParen].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::LeftParen].to_vec()) {
             let expr = self.expression()?;
 
-            self.advance_if_token(&Tok::RightParen);
+            self.advance_if_token(&TokType::RightParen);
 
             return Ok(Expr::Grouping {
                 expression: Box::new(expr),
@@ -229,19 +233,19 @@ impl<'a> Parser<'a> {
         self.advance();
 
         while !self.is_at_end() {
-            if self.previous().unwrap().token_type == Tok::Semicolon {
+            if self.previous().unwrap().token_type == TokType::Semicolon {
                 return;
             }
 
             match self.peek().unwrap().token_type {
-                Tok::Class
-                | Tok::Fun
-                | Tok::Var
-                | Tok::For
-                | Tok::If
-                | Tok::While
-                | Tok::Print
-                | Tok::Return => return,
+                TokType::Class
+                | TokType::Fun
+                | TokType::Var
+                | TokType::For
+                | TokType::If
+                | TokType::While
+                | TokType::Print
+                | TokType::Return => return,
                 _ => {
                     self.advance().unwrap();
                     return;
@@ -253,38 +257,41 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        pipeline::scanner::Scanner,
+        types::{literal_type::Lit, token::Tok, token_type::TokType},
+    };
+
     use super::Parser;
-    use crate::scanner::scanner::Scanner;
-    use crate::{literal_type::Lit, token::Token, token_type::Tok};
 
     #[test]
     fn should_add() {
-        let one = Token {
+        let one = Tok {
             lexeme: "1".to_string(),
             line: 1,
             literal: Some(Lit::Number(1.0)),
-            token_type: Tok::Number,
+            token_type: TokType::Number,
         };
 
-        let plus = Token {
+        let plus = Tok {
             lexeme: "+".to_string(),
             line: 1,
             literal: None,
-            token_type: Tok::Plus,
+            token_type: TokType::Plus,
         };
 
-        let two = Token {
+        let two = Tok {
             lexeme: "2".to_string(),
             line: 1,
             literal: Some(Lit::Number(2.0)),
-            token_type: Tok::Number,
+            token_type: TokType::Number,
         };
 
-        let semi = Token {
+        let semi = Tok {
             lexeme: ';'.to_string(),
             line: 1,
             literal: None,
-            token_type: Tok::Semicolon,
+            token_type: TokType::Semicolon,
         };
 
         let scanned_tokens = vec![one, plus, two, semi];

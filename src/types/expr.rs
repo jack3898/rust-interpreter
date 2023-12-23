@@ -1,10 +1,10 @@
-use crate::{literal_type::Lit, token::Token};
+use super::{literal_type::Lit, token::Tok};
 
 pub enum Expr {
     // two-operands (the items on either side of the operator) like 1 + 1 or 3 != 2
     Binary {
         left: Box<Expr>,
-        operator: Token,
+        operator: Tok,
         right: Box<Expr>,
     },
     Grouping {
@@ -15,7 +15,7 @@ pub enum Expr {
     },
     // something like !x or x++
     Unary {
-        operator: Token,
+        operator: Tok,
         right: Box<Expr>,
     },
 }
@@ -46,8 +46,7 @@ impl Expr {
 #[cfg(test)]
 mod tests {
     use super::Expr;
-    use crate::literal_type::Lit;
-    use crate::{token::Token, token_type::Tok};
+    use crate::types::{literal_type::Lit, token::Tok, token_type::TokType};
 
     #[test]
     fn should_pretty_print_plus() {
@@ -55,11 +54,11 @@ mod tests {
             left: Box::from(Expr::Literal {
                 value: Lit::Number(5.0),
             }),
-            operator: Token {
+            operator: Tok {
                 lexeme: "+".to_string(),
                 line: 1,
                 literal: None,
-                token_type: Tok::Plus,
+                token_type: TokType::Plus,
             },
             right: Box::from(Expr::Literal {
                 value: Lit::Number(3.0),
@@ -74,22 +73,22 @@ mod tests {
         let ast = Expr::Binary {
             left: Box::from(Expr::Grouping {
                 expression: Box::from(Expr::Unary {
-                    operator: Token {
+                    operator: Tok {
                         lexeme: "/".to_string(),
                         line: 1,
                         literal: None,
-                        token_type: Tok::Slash,
+                        token_type: TokType::Slash,
                     },
                     right: Box::from(Expr::Literal {
                         value: Lit::Number(1.0),
                     }),
                 }),
             }),
-            operator: Token {
+            operator: Tok {
                 lexeme: "+".to_string(),
                 line: 1,
                 literal: None,
-                token_type: Tok::Plus,
+                token_type: TokType::Plus,
             },
             right: Box::from(Expr::Literal {
                 value: Lit::Number(3.0),

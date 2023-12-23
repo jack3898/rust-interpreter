@@ -1,16 +1,11 @@
-mod ast;
 mod constants;
-mod interpreter;
-mod literal_type;
-mod run;
+mod pipeline;
 mod run_file;
 mod run_prompt;
-mod scanner;
-mod token;
-mod token_type;
+mod types;
 mod util;
 
-use run::run;
+use pipeline::run::run;
 use run_file::run_file;
 use run_prompt::run_prompt;
 use std::{env, process::exit};
@@ -29,5 +24,7 @@ fn main() {
         }
     };
 
-    run(&input).expect("Unable to run the program!");
+    let output = run(&input).unwrap().to_string();
+
+    println!("{}", output);
 }
