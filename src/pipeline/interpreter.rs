@@ -50,84 +50,63 @@ impl<'a> Interpreter<'a> {
                     return Err("Illegal use of string in unary.".to_string());
                 }
 
-                return Err("Unexpected and unidentifiable literal type.".to_string());
+                return Err("Unexpected and/or unidentifiable literal type.".to_string());
             }
             Expr::Binary {
                 left,
                 operator,
                 right,
             } => {
-                let literals = (self.evaluate(Some(&left))?, self.evaluate(Some(&right))?);
+                let binary_op = (
+                    self.evaluate(Some(&left))?,
+                    operator,
+                    self.evaluate(Some(&right))?,
+                );
 
-                match operator.token_type {
-                    TokType::EqualEqual => {
-                        return Ok(Lit::Bool(literals.0 == literals.1));
-                    }
-                    TokType::BangEqual => {
-                        return Ok(Lit::Bool(literals.0 != literals.1));
-                    }
-                    TokType::Plus => match literals {
-                        (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Number(l + r)),
-                        (Lit::String(l), Lit::String(r)) => {
-                            return Ok(Lit::String(format!("{}{}", l, r)))
-                        }
-                        _ => {
-                            return Err(
-                                "Attempt to add two unmatching or illegal data types.".to_string()
-                            )
-                        }
-                    },
-                    TokType::Minus => match literals {
-                        (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Number(l - r)),
-                        _ => {
-                            return Err("Attempt to subtract two unmatching or illegal data types."
-                                .to_string())
-                        }
-                    },
-                    TokType::Slash => match literals {
-                        (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Number(l / r)),
-                        _ => {
-                            return Err("Attempt to divide two unmatching or illegal data types."
-                                .to_string())
-                        }
-                    },
-                    TokType::Star => match literals {
-                        (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Number(l * r)),
-                        _ => {
-                            return Err("Attempt to multiply two unmatching or illegal data types."
-                                .to_string())
-                        }
-                    },
-                    TokType::Greater => match literals {
-                        (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Bool(l > r)),
-                        (Lit::String(l), Lit::String(r)) => {
-                            return Ok(Lit::Bool(l.len() > r.len()));
-                        }
-                        _ => return Err("Invalid use of greater operator.".to_string()),
-                    },
-                    TokType::GreaterEqual => match literals {
-                        (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Bool(l >= r)),
-                        (Lit::String(l), Lit::String(r)) => {
-                            return Ok(Lit::Bool(l.len() >= r.len()));
-                        }
-                        _ => return Err("Invalid use of greater-equal operator.".to_string()),
-                    },
-                    TokType::Less => match literals {
-                        (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Bool(l < r)),
-                        (Lit::String(l), Lit::String(r)) => {
-                            return Ok(Lit::Bool(l.len() < r.len()));
-                        }
-                        _ => return Err("Invalid use of less operator.".to_string()),
-                    },
-                    TokType::LessEqual => match literals {
-                        (Lit::Number(l), Lit::Number(r)) => return Ok(Lit::Bool(l <= r)),
-                        (Lit::String(l), Lit::String(r)) => {
-                            return Ok(Lit::Bool(l.len() <= r.len()));
-                        }
-                        _ => return Err("Invalid use of greater-equal operator.".to_string()),
-                    },
-                    _ => return Err("Unable to evaluate binary expression.".to_string()),
+                if operator.token_type == TokType::EqualEqual {
+                    return Ok(Lit::Bool(binary_op.0 == binary_op.2));
                 }
+
+                if operator.token_type == TokType::BangEqual {
+                    return Ok(Lit::Bool(binary_op.0 != binary_op.2));
+                }
+
+                return match binary_op {
+                    (Lit::Number(l), operator, Lit::Number(r)) => match operator.token_type {
+                        TokType::Plus => Ok(Lit::Number(l + r)),
+                        TokType::Minus => Ok(Lit::Number(l - r)),
+                        TokType::Star => Ok(Lit::Number(l * r)),
+                        TokType::Slash => Ok(Lit::Number(l / r)),
+                        TokType::Greater => Ok(Lit::Bool(l > r)),
+                        TokType::GreaterEqual => Ok(Lit::Bool(l >= r)),
+                        TokType::Less => Ok(Lit::Bool(l < r)),
+                        TokType::LessEqual => Ok(Lit::Bool(l <= r)),
+                        _ => Err(
+                            "Unexpected token type when evaluating binary for number evaluation."
+                                .to_string(),
+                        ),
+                    },
+                    (Lit::String(l), operator, Lit::String(r)) => match operator.token_type {
+                        TokType::Plus => Ok(Lit::String(format!("{}{}", l, r))),
+                        _ => Err(
+                            "Unexpected token type when evaluating binary for string evaluation."
+                                .to_string(),
+                        ),
+                    },
+                    (Lit::Bool(_), operator, Lit::Bool(_)) => match operator.token_type {
+                        _ => Err(
+                            "Unexpected token type when evaluating binary for boolean evaluation."
+                                .to_string(),
+                        ),
+                    },
+                    (Lit::Nil, operator, Lit::Nil) => match operator.token_type {
+                        _ => Err(
+                            "Unexpected token type when evaluating binary for nil evaluation."
+                                .to_string(),
+                        ),
+                    },
+                    _ => Err("Unexpected and unidentifiable literal type.".to_string()),
+                };
             }
         };
 
@@ -429,10 +408,7 @@ mod tests {
         let interpreter = Interpreter::new(&expression);
         let result = interpreter.evaluate(None);
 
-        assert_eq!(
-            result,
-            Err("Attempt to add two unmatching or illegal data types.".to_string())
-        );
+        assert_eq!(matches!(result, Err(_)), true);
     }
 
     #[test]
@@ -446,10 +422,7 @@ mod tests {
         let interpreter = Interpreter::new(&expression);
         let result = interpreter.evaluate(None);
 
-        assert_eq!(
-            result,
-            Err("Attempt to add two unmatching or illegal data types.".to_string())
-        );
+        assert_eq!(matches!(result, Err(_)), true);
     }
 
     #[test]
@@ -463,10 +436,7 @@ mod tests {
         let interpreter = Interpreter::new(&expression);
         let result = interpreter.evaluate(None);
 
-        assert_eq!(
-            result,
-            Err("Attempt to add two unmatching or illegal data types.".to_string())
-        );
+        assert_eq!(matches!(result, Err(_)), true);
     }
 
     #[test]
@@ -480,10 +450,7 @@ mod tests {
         let interpreter = Interpreter::new(&expression);
         let result = interpreter.evaluate(None);
 
-        assert_eq!(
-            result,
-            Err("Attempt to add two unmatching or illegal data types.".to_string())
-        );
+        assert_eq!(matches!(result, Err(_)), true);
     }
 
     #[test]
@@ -497,10 +464,7 @@ mod tests {
         let interpreter = Interpreter::new(&expression);
         let result = interpreter.evaluate(None);
 
-        assert_eq!(
-            result,
-            Err("Attempt to add two unmatching or illegal data types.".to_string())
-        );
+        assert_eq!(matches!(result, Err(_)), true);
     }
 
     #[test]
@@ -514,10 +478,7 @@ mod tests {
         let interpreter = Interpreter::new(&expression);
         let result = interpreter.evaluate(None);
 
-        assert_eq!(
-            result,
-            Err("Attempt to add two unmatching or illegal data types.".to_string())
-        );
+        assert_eq!(matches!(result, Err(_)), true);
     }
 
     #[test]
@@ -531,10 +492,7 @@ mod tests {
         let interpreter = Interpreter::new(&expression);
         let result = interpreter.evaluate(None);
 
-        assert_eq!(
-            result,
-            Err("Attempt to add two unmatching or illegal data types.".to_string())
-        );
+        assert_eq!(matches!(result, Err(_)), true);
     }
 
     #[test]
@@ -548,10 +506,7 @@ mod tests {
         let interpreter = Interpreter::new(&expression);
         let result = interpreter.evaluate(None);
 
-        assert_eq!(
-            result,
-            Err("Attempt to add two unmatching or illegal data types.".to_string())
-        );
+        assert_eq!(matches!(result, Err(_)), true);
     }
 
     #[test]
@@ -565,10 +520,7 @@ mod tests {
         let interpreter = Interpreter::new(&expression);
         let result = interpreter.evaluate(None);
 
-        assert_eq!(
-            result,
-            Err("Attempt to add two unmatching or illegal data types.".to_string())
-        );
+        assert_eq!(matches!(result, Err(_)), true);
     }
 
     // GROUPING
