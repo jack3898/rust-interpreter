@@ -24,7 +24,5 @@ fn main() {
         }
     };
 
-    let output = run(&input).unwrap().to_string();
-
-    println!("{}", output);
+    run(&input).unwrap();
 }

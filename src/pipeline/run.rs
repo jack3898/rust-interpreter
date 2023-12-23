@@ -1,14 +1,13 @@
-use crate::{
-    pipeline::{evaluator::Evaluator, parser::Parser, scanner::Scanner},
-    types::literal_type::Lit,
-};
+use super::{interpreter::Interpreter, parser::Parser, scanner::Scanner};
 
-pub fn run(input: &str) -> Result<Lit, String> {
+pub fn run(input: &str) -> Result<(), String> {
     let mut scanner = Scanner::new(input);
     let tokens = scanner.scan_tokens()?;
     let mut parser = Parser::new(&tokens);
-    let expr = parser.parse()?;
-    let evaluator = Evaluator::new(&expr);
+    let statements = parser.parse()?;
+    let mut interpreter = Interpreter::new();
 
-    Ok(evaluator.evaluate(None).unwrap())
+    interpreter.interpret_stmts(statements)?;
+
+    Ok(())
 }

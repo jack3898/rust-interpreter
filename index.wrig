@@ -1,1 +1,2 @@
-2 * (3 / -"muffin");
+print 2 * (3 / 2);
+print "jack" + " " + "is" + " " + "cool";

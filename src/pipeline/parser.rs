@@ -1,5 +1,7 @@
 use crate::types::{expr::Expr, literal_type::Lit, token::Tok, token_type::TokType};
 
+use super::stmt::Stmt;
+
 // I know there is so much repetition in this file and unoptimised code 🤣 but it'll do for my first prototype
 
 pub struct Parser<'a> {
@@ -27,12 +29,16 @@ impl<'a> Parser<'a> {
         self.previous()
     }
 
-    fn advance_if_token(&mut self, token_type: &TokType) {
-        let token = self.peek().expect("Could not consume current token.");
+    fn consume(&mut self, token_type: &TokType) -> Result<(), String> {
+        let token = self.peek().ok_or("Unable peek token".to_string())?;
 
         if token_type == &token.token_type {
             self.advance();
+        } else {
+            return Err("Token type not matched.".to_string());
         }
+
+        Ok(())
     }
 
     fn peek(&self) -> Option<&Tok> {
@@ -68,8 +74,48 @@ impl<'a> Parser<'a> {
         self.tokens.get(self.current - 1)
     }
 
-    pub fn parse(&mut self) -> Result<Expr, String> {
-        self.expression()
+    pub fn parse(&mut self) -> Result<Vec<Stmt>, String> {
+        let mut stmts: Vec<Stmt> = vec![];
+        let mut errors: Vec<String> = vec![];
+
+        while !self.is_at_end() {
+            let statement = self.statement();
+
+            match statement {
+                Ok(stmt) => stmts.push(stmt),
+                Err(reason) => errors.push(reason),
+            }
+        }
+
+        if errors.len() > 0 {
+            return Err(errors.join("\n"));
+        }
+
+        Ok(stmts)
+    }
+
+    fn statement(&mut self) -> Result<Stmt, String> {
+        if self.match_tokens_then_advance(&[TokType::Print].to_vec()) {
+            return self.print_statement();
+        } else {
+            return self.expression_statement();
+        }
+    }
+
+    fn print_statement(&mut self) -> Result<Stmt, String> {
+        let value = self.expression()?;
+
+        self.consume(&TokType::Semicolon)?;
+
+        Ok(Stmt::Print { expr: value })
+    }
+
+    fn expression_statement(&mut self) -> Result<Stmt, String> {
+        let expr = self.expression()?;
+
+        self.consume(&TokType::Semicolon)?;
+
+        Ok(Stmt::Expr { expr })
     }
 
     fn expression(&mut self) -> Result<Expr, String> {
@@ -218,7 +264,7 @@ impl<'a> Parser<'a> {
         if self.match_tokens_then_advance(&[TokType::LeftParen].to_vec()) {
             let expr = self.expression()?;
 
-            self.advance_if_token(&TokType::RightParen);
+            self.consume(&TokType::RightParen);
 
             return Ok(Expr::Grouping {
                 expression: Box::new(expr),
@@ -297,7 +343,7 @@ mod tests {
         let scanned_tokens = vec![one, plus, two, semi];
 
         let mut parser = Parser::new(&scanned_tokens);
-        let expr = parser.parse();
+        let expr = parser.expression();
 
         assert_eq!(expr.unwrap().to_string(), "(+ 1 2)");
     }
@@ -308,7 +354,7 @@ mod tests {
         let mut scanner = Scanner::new(source);
         let tokens = scanner.scan_tokens().unwrap();
         let mut parser = Parser::new(&tokens);
-        let expr = parser.parse();
+        let expr = parser.expression();
 
         assert_eq!(expr.unwrap().to_string(), "(<= (+ 1 2) (+ 5 7))");
     }
@@ -319,7 +365,7 @@ mod tests {
         let mut scanner = Scanner::new(source);
         let tokens = scanner.scan_tokens().unwrap();
         let mut parser = Parser::new(&tokens);
-        let expr = parser.parse();
+        let expr = parser.expression();
 
         assert_eq!(expr.unwrap().to_string(), "(== (+ 1 (group (+ 2 2))) 5)");
     }
