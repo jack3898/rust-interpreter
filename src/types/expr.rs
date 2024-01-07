@@ -18,6 +18,9 @@ pub enum Expr {
         operator: Tok,
         right: Box<Expr>,
     },
+    Variable {
+        name: Tok,
+    },
 }
 
 impl Expr {
@@ -39,6 +42,7 @@ impl Expr {
             Self::Unary { operator, right } => {
                 format!("({} {})", operator.lexeme, (*right).to_string())
             }
+            Self::Variable { name } => format!("(var {})", name.lexeme),
         }
     }
 }

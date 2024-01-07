@@ -29,16 +29,20 @@ impl<'a> Parser<'a> {
         self.previous()
     }
 
-    fn consume(&mut self, token_type: &TokType) -> Result<(), String> {
+    fn consume(&mut self, token_type: &TokType) -> Result<&Tok, String> {
         let token = self.peek().ok_or("Unable peek token".to_string())?;
 
         if token_type == &token.token_type {
             self.advance();
+
+            let previous = self
+                .previous()
+                .expect("No previous token to consume somehow!");
+
+            return Ok(previous);
         } else {
             return Err("Token type not matched.".to_string());
         }
-
-        Ok(())
     }
 
     fn peek(&self) -> Option<&Tok> {
@@ -79,7 +83,7 @@ impl<'a> Parser<'a> {
         let mut errors: Vec<String> = vec![];
 
         while !self.is_at_end() {
-            let statement = self.statement();
+            let statement = self.declaration();
 
             match statement {
                 Ok(stmt) => stmts.push(stmt),
@@ -94,12 +98,47 @@ impl<'a> Parser<'a> {
         Ok(stmts)
     }
 
-    fn statement(&mut self) -> Result<Stmt, String> {
-        if self.match_tokens_then_advance(&[TokType::Print].to_vec()) {
-            return self.print_statement();
-        } else {
-            return self.expression_statement();
+    fn declaration(&mut self) -> Result<Stmt, String> {
+        if self.match_token(&TokType::Var) {
+            self.advance();
+
+            return self.var_declaration();
         }
+
+        let statement = self.statement();
+
+        if statement.is_err() {
+            self.synchronise();
+        }
+
+        statement
+    }
+
+    fn var_declaration(&mut self) -> Result<Stmt, String> {
+        let token = self.consume(&TokType::Identifier)?.clone();
+
+        let initialiser = if self.match_token(&TokType::Equal) {
+            self.advance();
+
+            self.expression()?
+        } else {
+            Expr::Literal { value: Lit::Nil }
+        };
+
+        self.consume(&TokType::Semicolon)?;
+
+        Ok(Stmt::Var {
+            name: token,
+            expr: initialiser,
+        })
+    }
+
+    fn statement(&mut self) -> Result<Stmt, String> {
+        return if self.match_tokens_then_advance(&[TokType::Print].to_vec()) {
+            self.print_statement()
+        } else {
+            self.expression_statement()
+        };
     }
 
     fn print_statement(&mut self) -> Result<Stmt, String> {
@@ -234,6 +273,15 @@ impl<'a> Parser<'a> {
     }
 
     fn primary(&mut self) -> Result<Expr, String> {
+        if self.match_tokens_then_advance(&[TokType::Identifier].to_vec()) {
+            return Ok(Expr::Variable {
+                name: self
+                    .previous()
+                    .ok_or("could not match the previous token for the variable token type.")?
+                    .clone(),
+            });
+        }
+
         if self.match_tokens_then_advance(&[TokType::True].to_vec()) {
             return Ok(Expr::Literal {
                 value: Lit::Bool(true),
@@ -264,7 +312,7 @@ impl<'a> Parser<'a> {
         if self.match_tokens_then_advance(&[TokType::LeftParen].to_vec()) {
             let expr = self.expression()?;
 
-            self.consume(&TokType::RightParen);
+            self.consume(&TokType::RightParen)?;
 
             return Ok(Expr::Grouping {
                 expression: Box::new(expr),
@@ -274,7 +322,6 @@ impl<'a> Parser<'a> {
         Err("Expecting an expression but did not get one.".to_string())
     }
 
-    #[allow(dead_code)]
     fn synchronise(&mut self) {
         self.advance();
 

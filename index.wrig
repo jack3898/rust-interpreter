@@ -1,2 +1,5 @@
-print 2 * (3 / 2);
-print "jack" + " " + "is" + " " + "cool";
+var num = 2 * (3 / 2);
+var message = "jack" + " " + "is" + " " + "cool";
+
+print num + (num * 2);
+print message + "!!!!!!!";

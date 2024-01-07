@@ -18,26 +18,24 @@ pub struct Scanner {
 
 lazy_static! {
     static ref KEYWORDS: HashMap<&'static str, TokType> = {
-        let mut keywords = HashMap::new();
-
-        keywords.insert("and", TokType::And);
-        keywords.insert("class", TokType::Class);
-        keywords.insert("else", TokType::Else);
-        keywords.insert("false", TokType::False);
-        keywords.insert("for", TokType::For);
-        keywords.insert("fun", TokType::Fun);
-        keywords.insert("if", TokType::If);
-        keywords.insert("nil", TokType::Nil);
-        keywords.insert("or", TokType::Or);
-        keywords.insert("print", TokType::Print);
-        keywords.insert("return", TokType::Return);
-        keywords.insert("super", TokType::Super);
-        keywords.insert("this", TokType::This);
-        keywords.insert("true", TokType::True);
-        keywords.insert("var", TokType::Var);
-        keywords.insert("while", TokType::While);
-
-        keywords
+        HashMap::from([
+            ("and", TokType::And),
+            ("class", TokType::Class),
+            ("else", TokType::Else),
+            ("false", TokType::False),
+            ("for", TokType::For),
+            ("fun", TokType::Fun),
+            ("if", TokType::If),
+            ("nil", TokType::Nil),
+            ("or", TokType::Or),
+            ("print", TokType::Print),
+            ("return", TokType::Return),
+            ("super", TokType::Super),
+            ("this", TokType::This),
+            ("true", TokType::True),
+            ("var", TokType::Var),
+            ("while", TokType::While),
+        ])
     };
 }
 
@@ -59,7 +57,7 @@ impl Scanner {
     pub fn scan_tokens(&mut self) -> Result<&Vec<Tok>, String> {
         while !Self::is_at_end(self) {
             self.start = self.current;
-            Self::scan_token(self);
+            self.scan_token();
         }
 
         self.tokens.push(Tok {
@@ -88,7 +86,7 @@ impl Scanner {
             ';' => self.add_token(TokType::Semicolon, None),
             '*' => self.add_token(TokType::Star, None),
             '/' => self.add_token(TokType::Slash, None), // TODO: Add comment evaluation into this match
-            '"' => match self.scan_to_string_token_then_advance() {
+            '"' => match self.scan_string() {
                 Ok(string_token) => Some(string_token),
                 Err(error) => {
                     println!("{}", error);
@@ -97,7 +95,7 @@ impl Scanner {
                 }
             },
             '!' => {
-                let token_type = if self.is_char_then_advance('=') {
+                let token_type = if self.consume('=') {
                     TokType::BangEqual
                 } else {
                     TokType::Equal
@@ -106,7 +104,7 @@ impl Scanner {
                 self.add_token(token_type, None)
             }
             '=' => {
-                let token_type = if self.is_char_then_advance('=') {
+                let token_type = if self.consume('=') {
                     TokType::EqualEqual
                 } else {
                     TokType::Equal
@@ -115,7 +113,7 @@ impl Scanner {
                 self.add_token(token_type, None)
             }
             '<' => {
-                let token_type = if self.is_char_then_advance('=') {
+                let token_type = if self.consume('=') {
                     TokType::LessEqual
                 } else {
                     TokType::Less
@@ -124,7 +122,7 @@ impl Scanner {
                 self.add_token(token_type, None)
             }
             '>' => {
-                let token_type = if self.is_char_then_advance('=') {
+                let token_type = if self.consume('=') {
                     TokType::GreaterEqual
                 } else {
                     TokType::Greater
@@ -140,7 +138,7 @@ impl Scanner {
             }
             any_char => {
                 if is_digit(any_char) {
-                    match self.scan_to_number_token_then_advance() {
+                    match self.scan_number() {
                         Ok(number_token) => Some(number_token),
                         Err(error) => {
                             println!("{}", error);
@@ -149,7 +147,7 @@ impl Scanner {
                         }
                     }
                 } else if is_alpha(character) {
-                    match self.scan_to_identifier_then_advance() {
+                    match self.scan_ident() {
                         Ok(identifier) => Some(identifier),
                         Err(error) => {
                             println!("{}", error);
@@ -172,7 +170,7 @@ impl Scanner {
     /// Identify a string of random lengths.
     /// Keeps scanning until it finds the closing quote and will
     /// Respond with the token. Uses self.start and advances self.current to the closing quote to return the string.
-    fn scan_to_string_token_then_advance(&mut self) -> Result<TokType, String> {
+    fn scan_string(&mut self) -> Result<TokType, String> {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -199,7 +197,7 @@ impl Scanner {
         added_token
     }
 
-    fn scan_to_number_token_then_advance(&mut self) -> Result<TokType, String> {
+    fn scan_number(&mut self) -> Result<TokType, String> {
         while is_digit(self.peek()) {
             self.advance();
         }
@@ -226,7 +224,7 @@ impl Scanner {
         added_token
     }
 
-    fn scan_to_identifier_then_advance(&mut self) -> Result<TokType, String> {
+    fn scan_ident(&mut self) -> Result<TokType, String> {
         while is_alphanumeric(self.peek()) {
             self.advance();
         }
@@ -247,7 +245,7 @@ impl Scanner {
             .ok_or("Could not add token.".to_string())
     }
 
-    fn is_char_then_advance(&mut self, character: char) -> bool {
+    fn consume(&mut self, character: char) -> bool {
         if self.is_at_end() {
             return false;
         }
