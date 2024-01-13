@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::{literal_type::Lit, token_type::TokType};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -37,4 +39,10 @@ impl Tok {
     //         self.literal.as_ref().unwrap().to_string()
     //     )
     // }
+}
+
+impl Display for Tok {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "'{}'", self.lexeme)
+    }
 }

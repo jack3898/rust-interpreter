@@ -47,4 +47,5 @@ pub enum TokType {
     While,
 
     Eof,
+    None, // Used for internal processing, should not ever live beyond the scanner
 }

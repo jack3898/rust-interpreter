@@ -1,4 +1,5 @@
 mod constants;
+mod error;
 mod pipeline;
 mod run_file;
 mod run_prompt;

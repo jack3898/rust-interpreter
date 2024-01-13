@@ -1,19 +1,35 @@
 use std::collections::HashMap;
 
 use crate::{
+    error::{CodeLocation, DbgDisplay},
     types::{literal_type::Lit, token::Tok, token_type::TokType},
     util::string::{is_alpha, is_alphanumeric, is_digit, parse_string},
 };
 
 use lazy_static::lazy_static;
+use thiserror::Error;
 
 #[derive(Debug)]
 pub struct Scanner {
     source: Vec<char>,
     tokens: Vec<Tok>,
+    /// The start index of the source of the current token. If a string token is being scanned for example, this could be a lot smaller than current.
     start: usize,
+    /// The current index of the character in the source code being evaluated. Atomically incremented on a per-character basis.
     current: usize,
     line: usize,
+}
+
+#[derive(Error, Debug)]
+pub enum ScannerError {
+    #[error("Unexpected EOF.")]
+    UnexpectedEof,
+    #[error("Unterminated string! All strings must close. {0}.")]
+    UnterminatedString(CodeLocation),
+    #[error("Could not convert a string into a number. {0}.")]
+    UnparsableStringToNumber(CodeLocation),
+    #[error("Error scanning source code {0}.")]
+    ScanError(CodeLocation),
 }
 
 lazy_static! {
@@ -54,10 +70,10 @@ impl Scanner {
     /// Loops through all chars in the source,
     /// statefully updates self.start and self.current and finishes when at the final character
     /// To calculate what tokens are present
-    pub fn scan_tokens(&mut self) -> Result<&Vec<Tok>, String> {
+    pub fn scan_tokens(&mut self) -> Result<&Vec<Tok>, ScannerError> {
         while !Self::is_at_end(self) {
             self.start = self.current;
-            self.scan_token();
+            self.scan_token()?;
         }
 
         self.tokens.push(Tok {
@@ -70,30 +86,23 @@ impl Scanner {
         Ok(&self.tokens)
     }
 
-    fn scan_token(&mut self) -> Option<TokType> {
-        let character = self.advance()?;
+    fn scan_token(&mut self) -> Result<TokType, ScannerError> {
+        let character = self.advance().ok_or(ScannerError::UnexpectedEof)?;
 
         // Single character lexemes
         match character {
-            '(' => self.add_token(TokType::LeftParen, None),
-            ')' => self.add_token(TokType::RightParen, None),
-            '{' => self.add_token(TokType::LeftBrace, None),
-            '}' => self.add_token(TokType::RightBrace, None),
-            ',' => self.add_token(TokType::Comma, None),
-            '.' => self.add_token(TokType::Dot, None),
-            '-' => self.add_token(TokType::Minus, None),
-            '+' => self.add_token(TokType::Plus, None),
-            ';' => self.add_token(TokType::Semicolon, None),
-            '*' => self.add_token(TokType::Star, None),
-            '/' => self.add_token(TokType::Slash, None), // TODO: Add comment evaluation into this match
-            '"' => match self.scan_string() {
-                Ok(string_token) => Some(string_token),
-                Err(error) => {
-                    println!("{}", error);
-
-                    None
-                }
-            },
+            '(' => Ok(self.add_token(TokType::LeftParen, None)),
+            ')' => Ok(self.add_token(TokType::RightParen, None)),
+            '{' => Ok(self.add_token(TokType::LeftBrace, None)),
+            '}' => Ok(self.add_token(TokType::RightBrace, None)),
+            ',' => Ok(self.add_token(TokType::Comma, None)),
+            '.' => Ok(self.add_token(TokType::Dot, None)),
+            '-' => Ok(self.add_token(TokType::Minus, None)),
+            '+' => Ok(self.add_token(TokType::Plus, None)),
+            ';' => Ok(self.add_token(TokType::Semicolon, None)),
+            '*' => Ok(self.add_token(TokType::Star, None)),
+            '/' => Ok(self.add_token(TokType::Slash, None)), // TODO: Add comment evaluation into this match
+            '"' => Ok(self.scan_string()?),
             '!' => {
                 let token_type = if self.consume('=') {
                     TokType::BangEqual
@@ -101,7 +110,7 @@ impl Scanner {
                     TokType::Equal
                 };
 
-                self.add_token(token_type, None)
+                Ok(self.add_token(token_type, None))
             }
             '=' => {
                 let token_type = if self.consume('=') {
@@ -110,7 +119,7 @@ impl Scanner {
                     TokType::Equal
                 };
 
-                self.add_token(token_type, None)
+                Ok(self.add_token(token_type, None))
             }
             '<' => {
                 let token_type = if self.consume('=') {
@@ -119,7 +128,7 @@ impl Scanner {
                     TokType::Less
                 };
 
-                self.add_token(token_type, None)
+                Ok(self.add_token(token_type, None))
             }
             '>' => {
                 let token_type = if self.consume('=') {
@@ -128,49 +137,33 @@ impl Scanner {
                     TokType::Greater
                 };
 
-                self.add_token(token_type, None)
+                Ok(self.add_token(token_type, None))
             }
-            '\r' | ' ' => None,
+            '\r' | ' ' => Ok(TokType::None),
             '\n' => {
                 self.line += 1;
 
-                None
+                Ok(TokType::None)
             }
             any_char => {
                 if is_digit(any_char) {
-                    match self.scan_number() {
-                        Ok(number_token) => Some(number_token),
-                        Err(error) => {
-                            println!("{}", error);
-
-                            None
-                        }
-                    }
+                    Ok(self.scan_number()?)
                 } else if is_alpha(character) {
-                    match self.scan_ident() {
-                        Ok(identifier) => Some(identifier),
-                        Err(error) => {
-                            println!("{}", error);
-
-                            None
-                        }
-                    }
+                    Ok(self.scan_ident()?)
                 } else {
-                    println!(
-                        "Error parsing source code at char '{}', line {}",
-                        character, self.line
-                    );
-
-                    None
+                    Err(ScannerError::ScanError(CodeLocation {
+                        line: self.line,
+                        display: DbgDisplay::from(self.tokens.last().unwrap()),
+                    }))
                 }
             }
         }
     }
 
-    /// Identify a string of random lengths.
-    /// Keeps scanning until it finds the closing quote and will
-    /// Respond with the token. Uses self.start and advances self.current to the closing quote to return the string.
-    fn scan_string(&mut self) -> Result<TokType, String> {
+    /// This method is usually called when a quotation mark has been identified int the source code.
+    /// This method will collate all characters in the source code up until the point a closing quotation mark is found.
+    /// Will return that collection of characters as a string token type.
+    fn scan_string(&mut self) -> Result<TokType, ScannerError> {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -180,24 +173,22 @@ impl Scanner {
         }
 
         if self.is_at_end() {
-            return Err("Unterminated string.".to_string());
+            return Err(ScannerError::UnterminatedString(CodeLocation {
+                line: self.line,
+                display: DbgDisplay::from(self.tokens.last().unwrap()),
+            }));
         }
 
         // Consume the last " char
         self.advance();
 
-        let value = self
-            .source_slice(self.start + 1, self.current - 1)
-            .ok_or("Trouble calculating string literal slice."); // TODO: Rubbish error 😂
+        let value = self.get_source_slice(self.start + 1, self.current - 1); // +1 and -1 to exclude the quotation marks.
+        let added_token = self.add_token(TokType::String, Some(Lit::String(value)));
 
-        let added_token = self
-            .add_token(TokType::String, Some(Lit::String(value?)))
-            .ok_or("Could not add token.".to_string()); // TODO: More rubbish error
-
-        added_token
+        Ok(added_token)
     }
 
-    fn scan_number(&mut self) -> Result<TokType, String> {
+    fn scan_number(&mut self) -> Result<TokType, ScannerError> {
         while is_digit(self.peek()) {
             self.advance();
         }
@@ -212,39 +203,37 @@ impl Scanner {
             }
         }
 
-        let value = self.source_slice(self.start, self.current).unwrap();
+        let value = self.get_source_slice(self.start, self.current);
 
         let number =
-            parse_string(&value).ok_or(format!("Unable to parse {:?} into a number", value));
+            parse_string(&value).ok_or(ScannerError::UnparsableStringToNumber(CodeLocation {
+                line: self.line,
+                display: DbgDisplay::from(self.tokens.last().unwrap()),
+            }))?;
 
-        let added_token = self
-            .add_token(TokType::Number, Some(Lit::Number(number?)))
-            .ok_or("Could not add token.".to_string()); // TODO: More rubbish error
+        let added_token = self.add_token(TokType::Number, Some(Lit::Number(number)));
 
-        added_token
+        Ok(added_token)
     }
 
-    fn scan_ident(&mut self) -> Result<TokType, String> {
+    fn scan_ident(&mut self) -> Result<TokType, ScannerError> {
         while is_alphanumeric(self.peek()) {
             self.advance();
         }
 
-        let value = self
-            .source_slice(self.start, self.current)
-            .unwrap_or("Could not retrieve source slice.".to_string());
+        let value = self.get_source_slice(self.start, self.current);
 
-        let token_type = KEYWORDS.get(value.as_str()).cloned();
+        let token_type_2 = KEYWORDS.get(value.as_str()).cloned();
 
-        if let Some(token_type) = token_type {
-            return self
-                .add_token(token_type, None)
-                .ok_or("Could not add token.".to_string());
+        if let Some(token_type) = token_type_2 {
+            return Ok(self.add_token(token_type, None));
         }
 
-        self.add_token(TokType::Identifier, None)
-            .ok_or("Could not add token.".to_string())
+        Ok(self.add_token(TokType::Identifier, None))
     }
 
+    /// Returns a boolean indicating whether the character was successfully consumed.
+    /// NOTE: Will advance no matter the result.
     fn consume(&mut self, character: char) -> bool {
         if self.is_at_end() {
             return false;
@@ -263,17 +252,12 @@ impl Scanner {
         true
     }
 
+    // Return a bool to identify if the scanner's current position is at the end of the file.
     fn is_at_end(&self) -> bool {
-        self.current
-            >= self
-                .source
-                .len()
-                .try_into()
-                .expect("Unable to convert source length to u64!")
+        self.current >= self.source.len().try_into().unwrap() // usize always converts to u64, unwrap here is safe.
     }
 
-    // TODO: convert from -> \0 to -> Option<char> rather than returning \0, it will be more idiomatic
-    /// Peek at the char found at self.current. Does not advance self.current.
+    /// Return at the char found at self.current. Does not advance self.current. \0 if is at EOF.
     fn peek(&self) -> char {
         if self.is_at_end() {
             return '\0';
@@ -284,14 +268,11 @@ impl Scanner {
 
     /// Peek at a specific index
     fn peek_at(&self, index: usize) -> char {
-        if index >= self.source.len() {
-            return '\0';
-        }
-
-        self.source[index]
+        self.source.get(index).cloned().unwrap_or('\0')
     }
 
-    /// Peek & advance the current index by 1
+    /// Peek & advance the current index by 1.
+    /// Returns the just consumed character, or None if at EOF.
     fn advance(&mut self) -> Option<char> {
         let character = self.peek();
 
@@ -304,17 +285,19 @@ impl Scanner {
         Some(character)
     }
 
-    /// Take a slice of the source using a start and end index
-    fn source_slice(&self, start: usize, end: usize) -> Option<String> {
-        let slice = self.source.get(start..end)?.iter().collect();
-
-        Some(slice)
+    /// The slice in the scanner is stored as a vector of chars. This will concatenate a slice and return a string.
+    fn get_source_slice(&self, start: usize, end: usize) -> String {
+        self.source
+            .get(start..end)
+            .expect("Critical error in scanning source code. Attempted to extract a slice of source with an out of bounds index.")
+            .iter()
+            .collect()
     }
 
-    fn add_token(&mut self, token_type: TokType, literal_type: Option<Lit>) -> Option<TokType> {
+    fn add_token(&mut self, token_type: TokType, literal_type: Option<Lit>) -> TokType {
         let start = self.start;
         let current = self.current;
-        let lexeme: String = self.source_slice(start, current)?;
+        let lexeme = self.get_source_slice(start, current);
 
         let token = Tok {
             token_type: token_type.clone(),
@@ -325,7 +308,7 @@ impl Scanner {
 
         self.tokens.push(token);
 
-        Some(token_type)
+        token_type
     }
 }
 
