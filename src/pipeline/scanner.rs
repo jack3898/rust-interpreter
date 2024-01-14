@@ -28,8 +28,8 @@ pub enum ScannerError {
     UnterminatedString(CodeLocation),
     #[error("Could not convert a string into a number. {0}.")]
     InvalidNumber(CodeLocation),
-    #[error("Error scanning source code {0}.")]
-    ScanError(CodeLocation),
+    #[error("Unexpected token. {0}.")]
+    UnknownToken(CodeLocation),
 }
 
 lazy_static! {
@@ -159,9 +159,9 @@ impl Scanner {
                 } else if is_alpha(character) {
                     Ok(self.scan_ident()?)
                 } else {
-                    Err(ScannerError::ScanError(CodeLocation {
+                    Err(ScannerError::UnknownToken(CodeLocation {
                         line: self.line,
-                        display: DbgDisplay::from(self.tokens.last().unwrap()),
+                        display: DbgDisplay::from(&any_char),
                     }))
                 }
             }
@@ -348,7 +348,8 @@ impl Scanner {
 mod tests {
     use crate::{
         constants::{CRLF, LF},
-        types::literal_type::Lit,
+        pipeline::scanner::ScannerError,
+        types::{literal_type::Lit, token::Tok},
     };
 
     use super::{Scanner, TokType};
@@ -363,7 +364,7 @@ mod tests {
 
         let mut scanner = Scanner::new(source);
 
-        scanner.scan_tokens().ok();
+        scanner.scan_tokens().unwrap();
 
         assert_eq!(scanner.tokens.len(), 26);
         assert_eq!(scanner.line, 5);
@@ -404,7 +405,7 @@ mod tests {
         let source = CRLF.repeat(3);
         let mut scanner = Scanner::new(source.as_ref());
 
-        scanner.scan_tokens().ok();
+        scanner.scan_tokens().unwrap();
 
         assert_eq!(scanner.line, 4);
     }
@@ -414,7 +415,7 @@ mod tests {
         let source = LF.repeat(3);
         let mut scanner = Scanner::new(source.as_ref());
 
-        scanner.scan_tokens().ok();
+        scanner.scan_tokens().unwrap();
 
         assert_eq!(scanner.line, 4);
     }
@@ -424,7 +425,7 @@ mod tests {
         let source = "!= <= 60 >= == 123.45";
         let mut scanner = Scanner::new(source);
 
-        scanner.scan_tokens().ok();
+        scanner.scan_tokens().unwrap();
 
         assert_eq!(scanner.tokens.len(), 7);
         assert_eq!(scanner.line, 1);
@@ -435,7 +436,7 @@ mod tests {
         let source = "\"hey\"";
         let mut scanner = Scanner::new(source);
 
-        scanner.scan_tokens().ok();
+        scanner.scan_tokens().unwrap();
 
         assert_eq!(
             scanner.tokens[0].literal,
@@ -448,7 +449,7 @@ mod tests {
         let source = "\"hey, time to be happy! :)\"";
         let mut scanner = Scanner::new(source);
 
-        scanner.scan_tokens().ok();
+        scanner.scan_tokens().unwrap();
 
         assert_eq!(
             scanner.tokens[0].literal,
@@ -461,7 +462,7 @@ mod tests {
         let source = "(\"hey, time to be happy! q:)|=<; \")";
         let mut scanner = Scanner::new(source);
 
-        scanner.scan_tokens().ok();
+        scanner.scan_tokens().unwrap();
 
         assert_eq!(
             scanner.tokens[1].literal,
@@ -474,7 +475,7 @@ mod tests {
         let source = "100";
         let mut scanner = Scanner::new(source);
 
-        scanner.scan_tokens().ok();
+        scanner.scan_tokens().unwrap();
 
         assert_eq!(scanner.tokens[0].literal, Some(Lit::Number(100.0)));
     }
@@ -484,9 +485,7 @@ mod tests {
         let source = "10.1;";
         let mut scanner = Scanner::new(source);
 
-        scanner.scan_tokens().ok();
-
-        dbg!(&scanner.tokens);
+        scanner.scan_tokens().unwrap();
 
         assert_eq!(scanner.tokens[0].literal, Some(Lit::Number(10.1)));
     }
@@ -496,7 +495,7 @@ mod tests {
         let source = "rando identifier";
         let mut scanner = Scanner::new(source);
 
-        scanner.scan_tokens().ok();
+        scanner.scan_tokens().unwrap();
 
         assert_eq!(scanner.tokens[0].token_type, TokType::Identifier);
         assert_eq!(scanner.tokens[1].token_type, TokType::Identifier);
@@ -507,7 +506,7 @@ mod tests {
         let source = "rando = identifier + 1";
         let mut scanner = Scanner::new(source);
 
-        scanner.scan_tokens().ok();
+        scanner.scan_tokens().unwrap();
 
         assert_eq!(scanner.tokens[0].token_type, TokType::Identifier);
         assert_eq!(scanner.tokens[2].token_type, TokType::Identifier);
@@ -518,9 +517,57 @@ mod tests {
         let source = "var wow = 1 + 1";
         let mut scanner = Scanner::new(source);
 
-        scanner.scan_tokens().ok();
+        scanner.scan_tokens().unwrap();
 
         assert_eq!(scanner.tokens[0].token_type, TokType::Var);
         assert_eq!(scanner.tokens[1].token_type, TokType::Identifier);
+    }
+
+    #[test]
+    fn should_have_one_eof_token_on_empty_input() {
+        let source = "";
+        let mut scanner = Scanner::new(source);
+
+        scanner.scan_tokens().unwrap();
+
+        assert_eq!(scanner.tokens.len(), 1);
+        assert_eq!(
+            scanner.tokens[0],
+            Tok {
+                lexeme: "".into(),
+                line: 1,
+                literal: None,
+                token_type: TokType::Eof
+            }
+        )
+    }
+
+    #[test]
+    fn should_have_one_eof_token_on_whitespace_input() {
+        let source = " ";
+        let mut scanner = Scanner::new(source);
+
+        scanner.scan_tokens().unwrap();
+
+        assert_eq!(scanner.tokens.len(), 1);
+        assert_eq!(
+            scanner.tokens[0],
+            Tok {
+                lexeme: "".into(),
+                line: 1,
+                literal: None,
+                token_type: TokType::Eof
+            }
+        )
+    }
+
+    #[test]
+    fn should_handle_invalid_tokens() {
+        let source = "£";
+        let mut scanner = Scanner::new(source);
+
+        let result = scanner.scan_tokens();
+
+        assert!(matches!(result, Err(ScannerError::UnknownToken(_))));
     }
 }
