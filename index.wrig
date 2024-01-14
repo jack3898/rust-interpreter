@@ -1,2 +1,38 @@
+/*
+INTRO
+This is wrig. My own programming language for my own self-teaching.
+It's only interpreted, so behind the scenes it will be executed in a Rust-based runtime.
+You can run this example code file with `cargo run index.wrig`!
+Yes, yes, I know what I am about to show you is expected of any programming language. But again, self teaching.
+*/
+
+// You can define variables like this.
 var hello = 1 + 1;
-print hello;
+
+// Then output them to the terminal:
+print hello; // 2
+
+// And even use variables together:
+print hello + hello; // 4
+
+// You have equality operators:
+print 2 > 1; // true
+print 2 < 1; // false
+print 2 == 1; // false
+print 2 != 1; // true
+print 2 >= 1; // true
+print 2 <= 1; // false
+
+// String operations
+print "Hello" + " " + "world!";
+
+// Number variants
+print 100;
+print 1.1 + 2.2; // 3.3000...
+
+// Booleans
+print true;
+print false;
+
+// Expressions
+print (1 + 1) * (2 / 1.5); // 2.666...

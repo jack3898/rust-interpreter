@@ -24,10 +24,10 @@ pub struct Scanner {
 pub enum ScannerError {
     #[error("Unexpected EOF.")]
     UnexpectedEof,
-    #[error("Unterminated string! All strings must close. {0}.")]
+    #[error("Unterminated string. All strings must close. {0}.")]
     UnterminatedString(CodeLocation),
     #[error("Could not convert a string into a number. {0}.")]
-    UnparsableStringToNumber(CodeLocation),
+    InvalidNumber(CodeLocation),
     #[error("Error scanning source code {0}.")]
     ScanError(CodeLocation),
 }
@@ -71,7 +71,7 @@ impl Scanner {
     /// statefully updates self.start and self.current and finishes when at the final character
     /// To calculate what tokens are present
     pub fn scan_tokens(&mut self) -> Result<&Vec<Tok>, ScannerError> {
-        while !Self::is_at_end(self) {
+        while !self.is_at_end() {
             self.start = self.current;
             self.scan_token()?;
         }
@@ -101,8 +101,16 @@ impl Scanner {
             '+' => Ok(self.add_token(TokType::Plus, None)),
             ';' => Ok(self.add_token(TokType::Semicolon, None)),
             '*' => Ok(self.add_token(TokType::Star, None)),
-            '/' => Ok(self.add_token(TokType::Slash, None)), // TODO: Add comment evaluation into this match
             '"' => Ok(self.scan_string()?),
+            '/' => {
+                if self.consume('/') {
+                    Ok(self.skip_comment())
+                } else if self.consume('*') {
+                    Ok(self.skip_block_comment())
+                } else {
+                    Ok(self.add_token(TokType::Slash, None))
+                }
+            }
             '!' => {
                 let token_type = if self.consume('=') {
                     TokType::BangEqual
@@ -160,6 +168,31 @@ impl Scanner {
         }
     }
 
+    fn skip_comment(&mut self) -> TokType {
+        while self.peek() != '\n' && !self.is_at_end() {
+            self.advance();
+        }
+
+        self.line += 1;
+
+        TokType::None
+    }
+
+    fn skip_block_comment(&mut self) -> TokType {
+        while self.peek() != '*' && self.peek_at(self.current + 1) != '/' && !self.is_at_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+
+            self.advance();
+        }
+
+        self.advance();
+        self.advance();
+
+        TokType::None
+    }
+
     /// This method is usually called when a quotation mark has been identified int the source code.
     /// This method will collate all characters in the source code up until the point a closing quotation mark is found.
     /// Will return that collection of characters as a string token type.
@@ -205,11 +238,10 @@ impl Scanner {
 
         let value = self.get_source_slice(self.start, self.current);
 
-        let number =
-            parse_string(&value).ok_or(ScannerError::UnparsableStringToNumber(CodeLocation {
-                line: self.line,
-                display: DbgDisplay::from(self.tokens.last().unwrap()),
-            }))?;
+        let number = parse_string(&value).ok_or(ScannerError::InvalidNumber(CodeLocation {
+            line: self.line,
+            display: DbgDisplay::from(&value),
+        }))?;
 
         let added_token = self.add_token(TokType::Number, Some(Lit::Number(number)));
 
@@ -233,7 +265,7 @@ impl Scanner {
     }
 
     /// Returns a boolean indicating whether the character was successfully consumed.
-    /// NOTE: Will advance no matter the result.
+    /// Advances current if should a character be consumed.
     fn consume(&mut self, character: char) -> bool {
         if self.is_at_end() {
             return false;
@@ -268,7 +300,7 @@ impl Scanner {
 
     /// Peek at a specific index
     fn peek_at(&self, index: usize) -> char {
-        self.source.get(index).cloned().unwrap_or('\0')
+        self.source.get(index).copied().unwrap_or('\0')
     }
 
     /// Peek & advance the current index by 1.
@@ -286,7 +318,7 @@ impl Scanner {
     }
 
     /// The slice in the scanner is stored as a vector of chars. This will concatenate a slice and return a string.
-    fn get_source_slice(&self, start: usize, end: usize) -> String {
+    fn get_source_slice<'a>(&self, start: usize, end: usize) -> String {
         self.source
             .get(start..end)
             .expect("Critical error in scanning source code. Attempted to extract a slice of source with an out of bounds index.")
@@ -328,12 +360,43 @@ mod tests {
         ; * / ! = < > 1 10
         200 3000 ident ident2
         "#;
+
         let mut scanner = Scanner::new(source);
 
         scanner.scan_tokens().ok();
 
         assert_eq!(scanner.tokens.len(), 26);
         assert_eq!(scanner.line, 5);
+    }
+
+    #[test]
+    fn should_ignore_comments() {
+        let source_with_comments = r#"
+        (( )) {{ }} , . - +
+        ; * / ! = < > 1 10
+        200 3000 ident ident2
+        // This comment should be ignored
+        /*
+            This multiline comment should be ignored.
+        */
+        "#;
+
+        let source_without_comments = r#"
+        (( )) {{ }} , . - +
+        ; * / ! = < > 1 10
+        200 3000 ident ident2
+        "#;
+
+        let mut scanner_comments = Scanner::new(source_with_comments);
+        let mut scanner_no_comments = Scanner::new(source_without_comments);
+
+        scanner_comments.scan_tokens().ok();
+        scanner_no_comments.scan_tokens().ok();
+
+        assert_eq!(
+            scanner_comments.tokens.len(),
+            scanner_no_comments.tokens.len()
+        )
     }
 
     #[test]
@@ -418,10 +481,12 @@ mod tests {
 
     #[test]
     fn should_match_float_number() {
-        let source = "10.1";
+        let source = "10.1;";
         let mut scanner = Scanner::new(source);
 
         scanner.scan_tokens().ok();
+
+        dbg!(&scanner.tokens);
 
         assert_eq!(scanner.tokens[0].literal, Some(Lit::Number(10.1)));
     }
