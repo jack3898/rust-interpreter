@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Once};
 
 use crate::{
     error::{CodeLocation, DbgDisplay},
@@ -6,7 +6,6 @@ use crate::{
     util::string::{is_alpha, is_alphanumeric, is_digit, parse_string},
 };
 
-use lazy_static::lazy_static;
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -32,27 +31,33 @@ pub enum ScannerError {
     UnknownToken(CodeLocation),
 }
 
-lazy_static! {
-    static ref KEYWORDS: HashMap<&'static str, TokType> = {
-        HashMap::from([
-            ("and", TokType::And),
-            ("class", TokType::Class),
-            ("else", TokType::Else),
-            ("false", TokType::False),
-            ("for", TokType::For),
-            ("fun", TokType::Fun),
-            ("if", TokType::If),
-            ("nil", TokType::Nil),
-            ("or", TokType::Or),
-            ("print", TokType::Print),
-            ("return", TokType::Return),
-            ("super", TokType::Super),
-            ("this", TokType::This),
-            ("true", TokType::True),
-            ("var", TokType::Var),
-            ("while", TokType::While),
-        ])
-    };
+static mut KEYWORDS: Option<HashMap<&'static str, TokType>> = None;
+static INIT: Once = Once::new();
+
+fn get_keywords() -> &'static HashMap<&'static str, TokType> {
+    unsafe {
+        INIT.call_once(|| {
+            KEYWORDS = Some(HashMap::from([
+                ("and", TokType::And),
+                ("class", TokType::Class),
+                ("else", TokType::Else),
+                ("false", TokType::False),
+                ("for", TokType::For),
+                ("fun", TokType::Fun),
+                ("if", TokType::If),
+                ("nil", TokType::Nil),
+                ("or", TokType::Or),
+                ("print", TokType::Print),
+                ("return", TokType::Return),
+                ("super", TokType::Super),
+                ("this", TokType::This),
+                ("true", TokType::True),
+                ("var", TokType::Var),
+                ("while", TokType::While),
+            ]));
+        });
+        KEYWORDS.as_ref().unwrap()
+    }
 }
 
 impl Scanner {
@@ -255,7 +260,7 @@ impl Scanner {
 
         let value = self.get_source_slice(self.start, self.current);
 
-        let token_type_2 = KEYWORDS.get(value.as_str()).cloned();
+        let token_type_2 = get_keywords().get(value.as_str()).cloned();
 
         if let Some(token_type) = token_type_2 {
             return Ok(self.add_token(token_type, None));
