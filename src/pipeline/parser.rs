@@ -15,10 +15,7 @@ impl<'a> Parser<'a> {
     }
 
     fn is_at_end(&self) -> bool {
-        self.peek()
-            .expect("Cannot pull token type from current index.")
-            .token_type
-            == TokType::Eof
+        self.peek().token_type == TokType::Eof
     }
 
     fn advance(&mut self) -> Option<&Tok> {
@@ -30,7 +27,7 @@ impl<'a> Parser<'a> {
     }
 
     fn consume(&mut self, token_type: &TokType) -> Result<&Tok, String> {
-        let token = self.peek().ok_or("Unable peek token".to_string())?;
+        let token = self.peek();
 
         if token_type == &token.token_type {
             self.advance();
@@ -45,8 +42,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn peek(&self) -> Option<&Tok> {
-        self.tokens.get(self.current)
+    fn peek(&self) -> &Tok {
+        self.tokens.get(self.current).expect("Cannot peek token!")
     }
 
     fn match_token(&self, token_type: &TokType) -> bool {
@@ -54,11 +51,7 @@ impl<'a> Parser<'a> {
             return false;
         }
 
-        return self
-            .peek()
-            .expect("Cannot pull token type from current index.")
-            .token_type
-            == *token_type;
+        return self.peek().token_type == *token_type;
     }
 
     // I could create a macro for variable length params, but this is cleaner and less confusing albeit slower
@@ -330,7 +323,7 @@ impl<'a> Parser<'a> {
                 return;
             }
 
-            match self.peek().unwrap().token_type {
+            match self.peek().token_type {
                 TokType::Class
                 | TokType::Fun
                 | TokType::Var
