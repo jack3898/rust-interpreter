@@ -55,7 +55,7 @@ impl<'a> Parser<'a> {
     }
 
     // I could create a macro for variable length params, but this is cleaner and less confusing albeit slower
-    fn match_tokens_then_advance(&mut self, token_types: &Vec<TokType>) -> bool {
+    fn match_tokens_then_advance(&mut self, token_types: &[TokType]) -> bool {
         for token_type in token_types {
             if self.match_token(token_type) {
                 self.advance();
@@ -127,7 +127,7 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Result<Stmt, String> {
-        return if self.match_tokens_then_advance(&[TokType::Print].to_vec()) {
+        return if self.match_tokens_then_advance(&[TokType::Print]) {
             self.print_statement()
         } else {
             self.expression_statement()
@@ -266,7 +266,7 @@ impl<'a> Parser<'a> {
     }
 
     fn primary(&mut self) -> Result<Expr, String> {
-        if self.match_tokens_then_advance(&[TokType::Identifier].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::Identifier]) {
             return Ok(Expr::Variable {
                 name: self
                     .previous()
@@ -275,23 +275,23 @@ impl<'a> Parser<'a> {
             });
         }
 
-        if self.match_tokens_then_advance(&[TokType::True].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::True]) {
             return Ok(Expr::Literal {
                 value: Lit::Bool(true),
             });
         }
 
-        if self.match_tokens_then_advance(&[TokType::False].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::False]) {
             return Ok(Expr::Literal {
                 value: Lit::Bool(false),
             });
         }
 
-        if self.match_tokens_then_advance(&[TokType::Nil].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::Nil]) {
             return Ok(Expr::Literal { value: Lit::Nil });
         }
 
-        if self.match_tokens_then_advance(&[TokType::Number, TokType::String].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::Number, TokType::String]) {
             return Ok(Expr::Literal {
                 value: self
                     .previous()
@@ -302,7 +302,7 @@ impl<'a> Parser<'a> {
             });
         }
 
-        if self.match_tokens_then_advance(&[TokType::LeftParen].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::LeftParen]) {
             let expr = self.expression()?;
 
             self.consume(&TokType::RightParen)?;
