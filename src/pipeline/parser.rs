@@ -26,10 +26,10 @@ impl<'a> Parser<'a> {
         self.previous()
     }
 
-    fn consume(&mut self, token_type: &TokType) -> Result<&Tok, String> {
+    fn consume(&mut self, token_type: TokType) -> Result<&Tok, String> {
         let token = self.peek();
 
-        if token_type == &token.token_type {
+        if token_type == token.token_type {
             self.advance();
 
             let previous = self
@@ -46,18 +46,19 @@ impl<'a> Parser<'a> {
         self.tokens.get(self.current).expect("Cannot peek token!")
     }
 
-    fn match_token(&self, token_type: &TokType) -> bool {
+    fn match_token(&self, token_type: TokType) -> bool {
         if self.is_at_end() {
             return false;
         }
 
-        return self.peek().token_type == *token_type;
+        return self.peek().token_type == token_type;
     }
 
-    // I could create a macro for variable length params, but this is cleaner and less confusing albeit slower
-    fn match_tokens_then_advance(&mut self, token_types: &Vec<TokType>) -> bool {
+    // I could create a macro for variable length params, but this is cleaner and less confusing
+    /// Checks each token in a given array. Advances current up until the point a token is matched from the array.
+    fn match_tokens_then_advance(&mut self, token_types: &[TokType]) -> bool {
         for token_type in token_types {
-            if self.match_token(token_type) {
+            if self.match_token(*token_type) {
                 self.advance();
 
                 return true;
@@ -92,7 +93,7 @@ impl<'a> Parser<'a> {
     }
 
     fn declaration(&mut self) -> Result<Stmt, String> {
-        if self.match_token(&TokType::Var) {
+        if self.match_token(TokType::Var) {
             self.advance();
 
             return self.var_declaration();
@@ -108,9 +109,9 @@ impl<'a> Parser<'a> {
     }
 
     fn var_declaration(&mut self) -> Result<Stmt, String> {
-        let token = self.consume(&TokType::Identifier)?.clone();
+        let token = self.consume(TokType::Identifier)?.clone();
 
-        let initialiser = if self.match_token(&TokType::Equal) {
+        let initialiser = if self.match_token(TokType::Equal) {
             self.advance();
 
             self.expression()?
@@ -118,7 +119,7 @@ impl<'a> Parser<'a> {
             Expr::Literal { value: Lit::Nil }
         };
 
-        self.consume(&TokType::Semicolon)?;
+        self.consume(TokType::Semicolon)?;
 
         Ok(Stmt::Var {
             name: token,
@@ -127,7 +128,7 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Result<Stmt, String> {
-        return if self.match_tokens_then_advance(&[TokType::Print].to_vec()) {
+        return if self.match_tokens_then_advance(&[TokType::Print]) {
             self.print_statement()
         } else {
             self.expression_statement()
@@ -137,7 +138,7 @@ impl<'a> Parser<'a> {
     fn print_statement(&mut self) -> Result<Stmt, String> {
         let value = self.expression()?;
 
-        self.consume(&TokType::Semicolon)?;
+        self.consume(TokType::Semicolon)?;
 
         Ok(Stmt::Print { expr: value })
     }
@@ -145,7 +146,7 @@ impl<'a> Parser<'a> {
     fn expression_statement(&mut self) -> Result<Stmt, String> {
         let expr = self.expression()?;
 
-        self.consume(&TokType::Semicolon)?;
+        self.consume(TokType::Semicolon)?;
 
         Ok(Stmt::Expr { expr })
     }
@@ -156,7 +157,7 @@ impl<'a> Parser<'a> {
 
     fn equality(&mut self) -> Result<Expr, String> {
         let mut expr = self.comparison()?;
-        let token_types = [TokType::BangEqual, TokType::EqualEqual].to_vec();
+        let token_types = [TokType::BangEqual, TokType::EqualEqual];
 
         while self.match_tokens_then_advance(&token_types) {
             let operator = self
@@ -182,8 +183,7 @@ impl<'a> Parser<'a> {
             TokType::GreaterEqual,
             TokType::Less,
             TokType::LessEqual,
-        ]
-        .to_vec();
+        ];
 
         while self.match_tokens_then_advance(&token_types) {
             let operator = self
@@ -204,7 +204,7 @@ impl<'a> Parser<'a> {
 
     fn term(&mut self) -> Result<Expr, String> {
         let mut expr = self.unary()?;
-        let token_types = [TokType::Minus, TokType::Plus, TokType::Star, TokType::Slash].to_vec();
+        let token_types = [TokType::Minus, TokType::Plus, TokType::Star, TokType::Slash];
 
         while self.match_tokens_then_advance(&token_types) {
             let operator = self
@@ -225,7 +225,7 @@ impl<'a> Parser<'a> {
 
     fn factor(&mut self) -> Result<Expr, String> {
         let mut expr = self.unary()?;
-        let token_types = [TokType::Minus, TokType::Plus].to_vec();
+        let token_types = [TokType::Minus, TokType::Plus];
 
         while self.match_tokens_then_advance(&token_types) {
             let operator = self
@@ -245,7 +245,7 @@ impl<'a> Parser<'a> {
     }
 
     fn unary(&mut self) -> Result<Expr, String> {
-        let token_types = [TokType::Bang, TokType::Minus].to_vec();
+        let token_types = [TokType::Bang, TokType::Minus];
 
         if self.match_tokens_then_advance(&token_types) {
             let operator = self
@@ -266,7 +266,7 @@ impl<'a> Parser<'a> {
     }
 
     fn primary(&mut self) -> Result<Expr, String> {
-        if self.match_tokens_then_advance(&[TokType::Identifier].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::Identifier]) {
             return Ok(Expr::Variable {
                 name: self
                     .previous()
@@ -275,23 +275,23 @@ impl<'a> Parser<'a> {
             });
         }
 
-        if self.match_tokens_then_advance(&[TokType::True].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::True]) {
             return Ok(Expr::Literal {
                 value: Lit::Bool(true),
             });
         }
 
-        if self.match_tokens_then_advance(&[TokType::False].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::False]) {
             return Ok(Expr::Literal {
                 value: Lit::Bool(false),
             });
         }
 
-        if self.match_tokens_then_advance(&[TokType::Nil].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::Nil]) {
             return Ok(Expr::Literal { value: Lit::Nil });
         }
 
-        if self.match_tokens_then_advance(&[TokType::Number, TokType::String].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::Number, TokType::String]) {
             return Ok(Expr::Literal {
                 value: self
                     .previous()
@@ -302,10 +302,10 @@ impl<'a> Parser<'a> {
             });
         }
 
-        if self.match_tokens_then_advance(&[TokType::LeftParen].to_vec()) {
+        if self.match_tokens_then_advance(&[TokType::LeftParen]) {
             let expr = self.expression()?;
 
-            self.consume(&TokType::RightParen)?;
+            self.consume(TokType::RightParen)?;
 
             return Ok(Expr::Grouping {
                 expression: Box::new(expr),
