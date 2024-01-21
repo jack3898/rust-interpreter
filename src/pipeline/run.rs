@@ -6,7 +6,7 @@ pub fn run(input: &str) -> Result<(), String> {
         .scan_tokens()
         .unwrap_or_else(|error| panic!("{}", error));
     let mut parser = Parser::new(&tokens);
-    let statements = parser.parse()?;
+    let statements = parser.parse().map_err(|error| error.to_string())?;
     let mut interpreter = Interpreter::new();
 
     interpreter.interpret_stmts(statements)?;

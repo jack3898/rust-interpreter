@@ -1,4 +1,9 @@
-use crate::types::{expr::Expr, literal_type::Lit, token::Tok, token_type::TokType};
+use thiserror::Error;
+
+use crate::{
+    error::{CodeLocation, DbgDisplay},
+    types::{expr::Expr, literal_type::Lit, token::Tok, token_type::TokType},
+};
 
 use super::stmt::Stmt;
 
@@ -9,16 +14,54 @@ pub struct Parser<'a> {
     current: usize,
 }
 
+#[derive(Error, Debug)]
+pub enum ParserError {
+    #[error("An unexpected token was found. {0}. Expected {1}")]
+    UnexpectedToken(CodeLocation, TokType),
+    #[error("Parse error: {0}")]
+    ParseError(String),
+    #[error("No primary: {0}")]
+    PrimaryError(CodeLocation),
+    #[error("No literal type found: {0}")]
+    UndefinedLiteral(CodeLocation),
+}
+
 impl<'a> Parser<'a> {
     pub fn new(tokens: &'a Vec<Tok>) -> Self {
         Self { current: 0, tokens }
+    }
+
+    pub fn parse(&mut self) -> Result<Vec<Stmt>, ParserError> {
+        let mut stmts: Vec<Stmt> = vec![];
+        let mut errors: Vec<ParserError> = vec![];
+
+        while !self.is_at_end() {
+            let statement = self.declaration();
+
+            match statement {
+                Ok(stmt) => stmts.push(stmt),
+                Err(error) => errors.push(error),
+            }
+        }
+
+        if errors.len() > 0 {
+            let error = errors
+                .iter()
+                .map(|error| error.to_string())
+                .collect::<Vec<String>>()
+                .join("\n");
+
+            return Err(ParserError::ParseError(error));
+        }
+
+        Ok(stmts)
     }
 
     fn is_at_end(&self) -> bool {
         self.peek().token_type == TokType::Eof
     }
 
-    fn advance(&mut self) -> Option<&Tok> {
+    fn advance(&mut self) -> &Tok {
         if !self.is_at_end() {
             self.current += 1;
         }
@@ -26,24 +69,28 @@ impl<'a> Parser<'a> {
         self.previous()
     }
 
-    fn consume(&mut self, token_type: TokType) -> Result<&Tok, String> {
+    fn consume(&mut self, token_type: TokType) -> Result<&Tok, ParserError> {
         let token = self.peek();
 
         if token_type == token.token_type {
             self.advance();
 
-            let previous = self
-                .previous()
-                .expect("No previous token to consume somehow!");
-
-            return Ok(previous);
+            return Ok(self.previous());
         } else {
-            return Err("Token type not matched.".to_string());
+            return Err(ParserError::UnexpectedToken(
+                CodeLocation {
+                    line: token.line,
+                    display: DbgDisplay::from(token),
+                },
+                token_type,
+            ));
         }
     }
 
     fn peek(&self) -> &Tok {
-        self.tokens.get(self.current).expect("Cannot peek token!")
+        self.tokens
+            .get(self.current)
+            .expect("Critical error, Cannot peek token!")
     }
 
     fn match_token(&self, token_type: TokType) -> bool {
@@ -68,31 +115,13 @@ impl<'a> Parser<'a> {
         false
     }
 
-    fn previous(&self) -> Option<&Tok> {
-        self.tokens.get(self.current - 1)
+    fn previous(&self) -> &Tok {
+        self.tokens
+            .get(self.current - 1)
+            .expect("Critical error, parser is unable to retrieve previous token.")
     }
 
-    pub fn parse(&mut self) -> Result<Vec<Stmt>, String> {
-        let mut stmts: Vec<Stmt> = vec![];
-        let mut errors: Vec<String> = vec![];
-
-        while !self.is_at_end() {
-            let statement = self.declaration();
-
-            match statement {
-                Ok(stmt) => stmts.push(stmt),
-                Err(reason) => errors.push(reason),
-            }
-        }
-
-        if errors.len() > 0 {
-            return Err(errors.join("\n"));
-        }
-
-        Ok(stmts)
-    }
-
-    fn declaration(&mut self) -> Result<Stmt, String> {
+    fn declaration(&mut self) -> Result<Stmt, ParserError> {
         if self.match_token(TokType::Var) {
             self.advance();
 
@@ -108,7 +137,7 @@ impl<'a> Parser<'a> {
         statement
     }
 
-    fn var_declaration(&mut self) -> Result<Stmt, String> {
+    fn var_declaration(&mut self) -> Result<Stmt, ParserError> {
         let token = self.consume(TokType::Identifier)?.clone();
 
         let initialiser = if self.match_token(TokType::Equal) {
@@ -127,7 +156,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn statement(&mut self) -> Result<Stmt, String> {
+    fn statement(&mut self) -> Result<Stmt, ParserError> {
         return if self.match_tokens_then_advance(&[TokType::Print]) {
             self.print_statement()
         } else {
@@ -135,7 +164,7 @@ impl<'a> Parser<'a> {
         };
     }
 
-    fn print_statement(&mut self) -> Result<Stmt, String> {
+    fn print_statement(&mut self) -> Result<Stmt, ParserError> {
         let value = self.expression()?;
 
         self.consume(TokType::Semicolon)?;
@@ -143,7 +172,7 @@ impl<'a> Parser<'a> {
         Ok(Stmt::Print { expr: value })
     }
 
-    fn expression_statement(&mut self) -> Result<Stmt, String> {
+    fn expression_statement(&mut self) -> Result<Stmt, ParserError> {
         let expr = self.expression()?;
 
         self.consume(TokType::Semicolon)?;
@@ -151,24 +180,21 @@ impl<'a> Parser<'a> {
         Ok(Stmt::Expr { expr })
     }
 
-    fn expression(&mut self) -> Result<Expr, String> {
+    fn expression(&mut self) -> Result<Expr, ParserError> {
         self.equality()
     }
 
-    fn equality(&mut self) -> Result<Expr, String> {
+    fn equality(&mut self) -> Result<Expr, ParserError> {
         let mut expr = self.comparison()?;
         let token_types = [TokType::BangEqual, TokType::EqualEqual];
 
         while self.match_tokens_then_advance(&token_types) {
-            let operator = self
-                .previous()
-                .expect("Could not find previous token in equality.")
-                .clone();
+            let operator = self.previous().clone();
             let right = self.comparison()?;
 
             expr = Expr::Binary {
                 left: Box::new(expr),
-                operator: operator.clone(),
+                operator: operator,
                 right: Box::new(right),
             }
         }
@@ -176,7 +202,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn comparison(&mut self) -> Result<Expr, String> {
+    fn comparison(&mut self) -> Result<Expr, ParserError> {
         let mut expr = self.term()?;
         let token_types = [
             TokType::Greater,
@@ -186,15 +212,12 @@ impl<'a> Parser<'a> {
         ];
 
         while self.match_tokens_then_advance(&token_types) {
-            let operator = self
-                .previous()
-                .expect("Could not find previous token in comparison.")
-                .clone();
+            let operator = self.previous().clone();
             let right = self.term()?;
 
             expr = Expr::Binary {
                 left: Box::new(expr),
-                operator: operator.clone(),
+                operator: operator,
                 right: Box::new(right),
             }
         }
@@ -202,20 +225,17 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn term(&mut self) -> Result<Expr, String> {
+    fn term(&mut self) -> Result<Expr, ParserError> {
         let mut expr = self.unary()?;
         let token_types = [TokType::Minus, TokType::Plus, TokType::Star, TokType::Slash];
 
         while self.match_tokens_then_advance(&token_types) {
-            let operator = self
-                .previous()
-                .expect("Could not find previous token in term.")
-                .clone();
+            let operator = self.previous().clone();
             let right = self.factor()?;
 
             expr = Expr::Binary {
                 left: Box::new(expr),
-                operator: operator.clone(),
+                operator: operator,
                 right: Box::new(right),
             }
         }
@@ -223,20 +243,17 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn factor(&mut self) -> Result<Expr, String> {
+    fn factor(&mut self) -> Result<Expr, ParserError> {
         let mut expr = self.unary()?;
         let token_types = [TokType::Minus, TokType::Plus];
 
         while self.match_tokens_then_advance(&token_types) {
-            let operator = self
-                .previous()
-                .expect("Could not find previous token in term.")
-                .clone();
+            let operator = self.previous().clone();
             let right = self.unary()?;
 
             expr = Expr::Binary {
                 left: Box::new(expr),
-                operator: operator.clone(),
+                operator: operator,
                 right: Box::new(right),
             }
         }
@@ -244,18 +261,15 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn unary(&mut self) -> Result<Expr, String> {
+    fn unary(&mut self) -> Result<Expr, ParserError> {
         let token_types = [TokType::Bang, TokType::Minus];
 
         if self.match_tokens_then_advance(&token_types) {
-            let operator = self
-                .previous()
-                .expect("Could not find previous token in term.")
-                .clone();
+            let operator = self.previous().clone();
             let right = self.unary()?;
 
             let unary = Expr::Unary {
-                operator: operator.clone(),
+                operator: operator,
                 right: Box::new(right),
             };
 
@@ -265,13 +279,10 @@ impl<'a> Parser<'a> {
         self.primary()
     }
 
-    fn primary(&mut self) -> Result<Expr, String> {
+    fn primary(&mut self) -> Result<Expr, ParserError> {
         if self.match_tokens_then_advance(&[TokType::Identifier]) {
             return Ok(Expr::Variable {
-                name: self
-                    .previous()
-                    .ok_or("could not match the previous token for the variable token type.")?
-                    .clone(),
+                name: self.previous().clone(),
             });
         }
 
@@ -295,10 +306,12 @@ impl<'a> Parser<'a> {
             return Ok(Expr::Literal {
                 value: self
                     .previous()
-                    .ok_or("Could you get previous value in primary.".to_string())?
-                    .clone()
                     .literal
-                    .ok_or("Access to literal type failed.".to_string())?,
+                    .clone()
+                    .ok_or(ParserError::UndefinedLiteral(CodeLocation {
+                        line: self.peek().line,
+                        display: DbgDisplay::from(self.peek()),
+                    }))?,
             });
         }
 
@@ -312,14 +325,17 @@ impl<'a> Parser<'a> {
             });
         }
 
-        Err("Expecting an expression but did not get one.".to_string())
+        Err(ParserError::PrimaryError(CodeLocation {
+            line: self.peek().line,
+            display: DbgDisplay::from(self.peek()),
+        }))
     }
 
     fn synchronise(&mut self) {
         self.advance();
 
         while !self.is_at_end() {
-            if self.previous().unwrap().token_type == TokType::Semicolon {
+            if self.previous().token_type == TokType::Semicolon {
                 return;
             }
 
@@ -333,7 +349,7 @@ impl<'a> Parser<'a> {
                 | TokType::Print
                 | TokType::Return => return,
                 _ => {
-                    self.advance().unwrap();
+                    self.advance();
                     return;
                 }
             }

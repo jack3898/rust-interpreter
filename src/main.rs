@@ -25,5 +25,10 @@ fn main() {
         }
     };
 
-    run(&input).unwrap();
+    match run(&input) {
+        Ok(()) => (),
+        Err(error) => {
+            println!("{error}");
+        }
+    }
 }
