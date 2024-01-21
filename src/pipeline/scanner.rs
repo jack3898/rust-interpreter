@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Once};
 
 use crate::{
     error::{CodeLocation, DbgDisplay},
-    types::{literal_type::Lit, token::Tok, token_type::TokType},
+    types::{Lit, Tok, TokType},
     util::string::{is_alpha, is_alphanumeric, is_digit, parse_string},
 };
 
@@ -354,7 +354,7 @@ mod tests {
     use crate::{
         constants::{CRLF, LF},
         pipeline::scanner::ScannerError,
-        types::{literal_type::Lit, token::Tok},
+        types::{Lit, Tok},
     };
 
     use super::{Scanner, TokType};

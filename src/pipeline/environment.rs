@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::types::literal_type::Lit;
+use crate::types::Lit;
 
 pub struct Environment {
     values: HashMap<String, Lit>,

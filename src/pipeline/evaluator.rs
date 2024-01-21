@@ -1,6 +1,6 @@
 // Yeah, this could be broken up. But I'm lazy and it works, and I will refactor it later.
 
-use crate::types::{expr::Expr, literal_type::Lit, token_type::TokType};
+use crate::types::{Expr, Lit, TokType};
 
 use super::environment::Environment;
 

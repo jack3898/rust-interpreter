@@ -2,10 +2,8 @@ use thiserror::Error;
 
 use crate::{
     error::{CodeLocation, DbgDisplay},
-    types::{expr::Expr, literal_type::Lit, token::Tok, token_type::TokType},
+    types::{Expr, Lit, Stmt, Tok, TokType},
 };
-
-use super::stmt::Stmt;
 
 // I know there is so much repetition in this file and unoptimised code 🤣 but it'll do for my first prototype
 
@@ -361,7 +359,7 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::{
         pipeline::scanner::Scanner,
-        types::{literal_type::Lit, token::Tok, token_type::TokType},
+        types::{Lit, Tok, TokType},
     };
 
     use super::Parser;

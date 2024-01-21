@@ -1,4 +1,4 @@
-use crate::types::{expr::Expr, token::Tok};
+use super::{expr::Expr, token::Tok};
 
 pub enum Stmt {
     Expr { expr: Expr },

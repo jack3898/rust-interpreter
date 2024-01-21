@@ -1,6 +1,6 @@
-use crate::types::literal_type::Lit;
+use crate::types::{Lit, Stmt};
 
-use super::{environment::Environment, evaluator::Evaluator, stmt::Stmt};
+use super::{environment::Environment, evaluator::Evaluator};
 
 pub struct Interpreter {
     environment: Environment,
