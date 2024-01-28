@@ -1,4 +1,4 @@
-// Yeah, this could be broken up. But I'm lazy and it works, and I will refactor it later.
+// Yeah, this could be broken up. But I'm lazy, and it works, and I will refactor it later.
 
 use crate::types::{Expr, Lit, TokType};
 
@@ -32,7 +32,7 @@ impl<'a> Evaluator<'a> {
 
                 if let Lit::Number(num) = right {
                     return match operator.token_type {
-                        TokType::Minus => Ok(Lit::Number(-(num))),
+                        TokType::Minus => Ok(Lit::Number(-num)),
                         TokType::Plus => Ok(Lit::Number(num)),
                         TokType::Bang => Ok(Lit::Bool(num == 0.0)),
                         _ => Err(

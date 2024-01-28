@@ -73,7 +73,7 @@ impl<'a> Parser<'a> {
         if token_type == token.token_type {
             self.advance();
 
-            return Ok(self.previous());
+            Ok(self.previous())
         } else {
             return Err(ParserError::UnexpectedToken(
                 CodeLocation {
@@ -138,9 +138,8 @@ impl<'a> Parser<'a> {
     fn var_declaration(&mut self) -> Result<Stmt, ParserError> {
         let token = self.consume(TokType::Identifier)?.clone();
 
-        let initialiser = if self.match_token(TokType::Equal) {
+        let initializer = if self.match_token(TokType::Equal) {
             self.advance();
-
             self.expression()?
         } else {
             Expr::Literal { value: Lit::Nil }
@@ -150,7 +149,7 @@ impl<'a> Parser<'a> {
 
         Ok(Stmt::Var {
             name: token,
-            expr: initialiser,
+            expr: initializer,
         })
     }
 
@@ -192,7 +191,7 @@ impl<'a> Parser<'a> {
 
             expr = Expr::Binary {
                 left: Box::new(expr),
-                operator: operator,
+                operator,
                 right: Box::new(right),
             }
         }
@@ -215,7 +214,7 @@ impl<'a> Parser<'a> {
 
             expr = Expr::Binary {
                 left: Box::new(expr),
-                operator: operator,
+                operator,
                 right: Box::new(right),
             }
         }
@@ -233,7 +232,7 @@ impl<'a> Parser<'a> {
 
             expr = Expr::Binary {
                 left: Box::new(expr),
-                operator: operator,
+                operator,
                 right: Box::new(right),
             }
         }
@@ -251,7 +250,7 @@ impl<'a> Parser<'a> {
 
             expr = Expr::Binary {
                 left: Box::new(expr),
-                operator: operator,
+                operator,
                 right: Box::new(right),
             }
         }
@@ -267,7 +266,7 @@ impl<'a> Parser<'a> {
             let right = self.unary()?;
 
             let unary = Expr::Unary {
-                operator: operator,
+                operator,
                 right: Box::new(right),
             };
 

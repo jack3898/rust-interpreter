@@ -73,7 +73,7 @@ impl Scanner {
 
     /// Initialise the scan token process.
     /// Loops through all chars in the source,
-    /// statefully updates self.start and self.current and finishes when at the final character
+    /// updates `self.start` and `self.current` and finishes when at the final character
     /// To calculate what tokens are present
     pub fn scan_tokens(&mut self) -> Result<&Vec<Tok>, ScannerError> {
         while !self.is_at_end() {
